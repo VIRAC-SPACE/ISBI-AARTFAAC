@@ -279,7 +279,9 @@ void InputBuffer::inputThreadBody() {
 
 #endif
 
-  VDIFStream vdifStream(ps.inputDescriptors()[myFirstStation], ps.sampleRate());
+  TimeStamp seekTime = ps.startTime() - nrHistorySamples - ps.maxDelay();
+
+  VDIFStream vdifStream(ps.inputDescriptors()[myFirstStation], ps.sampleRate(), seekTime);
   assert(&vdifStream != nullptr);
 
 #pragma omp critical (clog)

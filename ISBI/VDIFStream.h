@@ -89,8 +89,11 @@ class VDIFStream : public Stream {
     bool readFirstHeader();
     void findNextValidHeader();
     HeaderStatus checkHeader();
+
+    void atTimestamp(const TimeStamp &ts);
+    bool readHeaderAtFrame(uint64_t frameIndex, VDIFHeader &hdr);
   public:
-    VDIFStream(std::string inputFile, double sampleRate);
+    VDIFStream(std::string inputFile, double sampleRate, TimeStamp startTime);
 
     void read(char* frame);
 
