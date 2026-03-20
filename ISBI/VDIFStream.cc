@@ -15,7 +15,14 @@ constexpr uint32_t DATA_SIZE = 8000; // bytes
 constexpr std::size_t READ_BUFFER_SIZE = 1u << 20;
 
 VDIFStream::VDIFStream(std::string inputFile, double sampleRate, TimeStamp startTime) 
-  : ioBuffer(READ_BUFFER_SIZE), firstHeaderFound(false), invalidFrames(0), numberOfFrames(0), sampleRate(sampleRate), dataSize(0), headerSize(0) { 
+  : ioBuffer(READ_BUFFER_SIZE), 
+    firstHeaderFound(false), 
+    invalidFrames(0), 
+    numberOfFrames(0), 
+    sampleRate(sampleRate), 
+    dataSize(0), 
+    headerSize(0) { 
+
     file.rdbuf()->pubsetbuf(ioBuffer.data(), ioBuffer.size());
     file.open(inputFile, std::ios::binary);
     std::cout << "Created a new VDIFStream object for " << inputFile << std::endl;
@@ -32,66 +39,75 @@ VDIFStream::VDIFStream(std::string inputFile, double sampleRate, TimeStamp start
     if (!file) { throw std::runtime_error("Failed to seek to the first frame!"); }
 
     atTimestamp(startTime);
-  }
-
-bool VDIFStream::readHeaderAtFrame(uint64_t frameIndex, VDIFHeader &hdr)
-{
-    const std::streamoff offset =
-        static_cast<std::streamoff>(frameIndex) * (headerSize + dataSize);
-
-    file.clear();
-    file.seekg(offset, std::ios::beg);
-    if (!file) {
-        return false;
-    }
-
-    file.read(reinterpret_cast<char*>(&hdr), headerSize);
-    return file.gcount() == static_cast<std::streamsize>(headerSize);
 }
 
-void VDIFStream::atTimestamp(const TimeStamp &ts)
-{
-    const int64_t target = static_cast<int64_t>(ts);
-    const int64_t firstTs = firstHeader.timestamp(sampleRate);
-    const int64_t samplesPerFrame = firstHeader.samplesPerFrame();
+bool VDIFStream::readHeaderAtFrame(uint64_t frameIndex, VDIFHeader &hdr) {
+  const std::streamoff offset =
+    static_cast<std::streamoff>(frameIndex) * (headerSize + dataSize);
 
-    uint64_t guessFrame = static_cast<uint64_t>((target - firstTs) / samplesPerFrame);
+  file.clear();
+  file.seekg(offset, std::ios::beg);
+  if (!file) {
+    return false;
+  }
 
-    VDIFHeader hdr;
-    uint64_t chosenFrame = 0;
+  file.read(reinterpret_cast<char*>(&hdr), headerSize);
+  return file.gcount() == static_cast<std::streamsize>(headerSize);
+}
 
-    // Walk forward from the estimate until we pass the target.
-    for (uint64_t frame = guessFrame; ; ++frame) {
-        if (!readHeaderAtFrame(frame, hdr)) {
-            throw Stream::EndOfStreamException("VDIFStream::atTimestamp: target beyond EOF");
-        }
+void VDIFStream::atTimestamp(const TimeStamp &ts) {
+  const int64_t target = static_cast<int64_t>(ts);
+  const int64_t firstTs = firstHeader.timestamp(sampleRate);
+  const int64_t samplesPerFrame = firstHeader.samplesPerFrame();
 
-        currentHeader = hdr;
-        if (checkHeader() != HeaderStatus::VALID) {
-            continue;
-        }
+  int64_t estimatedFrame = (target - firstTs) / samplesPerFrame;
+  if (estimatedFrame < 0) {
+    estimatedFrame = 0;
+  }
 
-        const int64_t frameTs = hdr.timestamp(sampleRate);
+  uint64_t frame = static_cast<uint64_t>(estimatedFrame);
+  VDIFHeader header;
 
-        if (frameTs > target) {
-            break;
-        }
-
-        chosenFrame = frame;
+  while (true) {
+    if (!readHeaderAtFrame(frame, header)) {
+      throw std::runtime_error("VDIFSTream::atTimestamp: target beyond EOF");
     }
 
-    numberOfFrames = chosenFrame;
-    file.clear();
-    file.seekg(static_cast<std::streamoff>(chosenFrame) * (headerSize + dataSize),
-               std::ios::beg);
-
-    if (!file) {
-        throw std::runtime_error("VDIFStream::atTimestamp: failed final seek");
+    currentHeader = header;
+    if (checkHeader() != HeaderStatus::VALID) {
+      ++frame;
+      continue;
     }
 
-    std::cout << "Seeked to frame " << chosenFrame
-              << " timestamp " << currentHeader.timestamp(sampleRate)
-              << " for target " << target << std::endl;
+    const int64_t frameStart = header.timestamp(sampleRate);
+    const int64_t frameEnd = frameStart + header.samplesPerFrame();
+
+    if (target < frameStart) {
+      if (frame == 0) {
+        break;
+      }
+      --frame;
+      continue;
+    }
+
+    if (target < frameEnd) {
+      break;
+    }
+
+    ++frame;
+  }
+
+  numberOfFrames = frame;
+  file.clear();
+  file.seekg(static_cast<std::streamoff>(frame) * (headerSize + dataSize), std::ios::beg);
+
+  if (!file) {
+    throw std::runtime_error("VDIFStream::atTimestamp: failed final seek");
+  }
+
+  std::cout << "Seeked to frame " << frame
+    << " timestamp " << currentHeader.timestamp(sampleRate)
+    << " for target " << target << std::endl;
 }
 
 bool VDIFStream::readFirstHeader() {
