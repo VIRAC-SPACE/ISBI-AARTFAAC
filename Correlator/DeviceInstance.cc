@@ -296,34 +296,45 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
       double delayAtEnd    = getDelayAt(ps.delays()[station], (int64_t)time + ps.nrSamplesPerSubbandBeforeFilter());
 
 
-    if (station != referenceStation) {
-      double delayAtStartR = getDelayAt(ps.delays()[referenceStation], (int64_t)time);
-      double delayAtEndR   = getDelayAt(ps.delays()[referenceStation], (int64_t)time + ps.nrSamplesPerSubbandBeforeFilter());
-      delayAtStart -= delayAtStartR;
-      delayAtEnd -= delayAtEndR;
-    } else {
-      delayAtStart = 0.0;
-      delayAtEnd = 0.0;
-    }
+      if (station != referenceStation) {
+        double delayAtStartR = getDelayAt(ps.delays()[referenceStation], (int64_t)time);
+        double delayAtEndR   = getDelayAt(ps.delays()[referenceStation], (int64_t)time + ps.nrSamplesPerSubbandBeforeFilter());
+        delayAtStart -= delayAtStartR;
+        delayAtEnd -= delayAtEndR;
+      } else {
+        delayAtStart = 0.0;
+        delayAtEnd = 0.0;
+      }
 
-      double d0 = fracDelay(delayAtStart);
-      double dN = fracDelay(delayAtEnd);
-  
-      double d1 = (dN - d0) / N;
-      // double d1 = (delayAtEnd - delayAtStart) / N;
+      double delayInSamplesAtStart = delayAtStart * Fs;
+      double delayInSamplesAtEnd = delayAtEnd * Fs;
+
+      int integerDelayAtStart = std::floor(delayInSamplesAtStart);
+      int integerDelayAtEnd = std::floor(delayInSamplesAtEnd);
+
+      double fractionalDelayAtStart = delayInSamplesAtStart - (double)integerDelayAtStart;
+      double fractionalDelayAtEnd = delayInSamplesAtEnd - (double)integerDelayAtEnd;
+
+      double d0 = fractionalDelayAtStart / Fs;
+      double d1 = (delayAtEnd - delayAtStart) / N;
 
       hostDelays[station][0] = -(float)d0;
       hostDelays[station][1] = -(float)d1;
-  
-      std::cout << "station=" << station 
-        << " d0=" << -(float)d0
-        << " d1=" << -(float)d1
+
+      std::cout << "station=" << station
+        << " delayInSamplesAtStart=" << delayInSamplesAtStart 
+        << " delayInSamplesAtEnd=" << delayInSamplesAtEnd
+        << " integerDelayAtStart=" << integerDelayAtStart
+        << " integerDelayAtEnd=" << integerDelayAtEnd
+        << " fractionalDelayAtStart=" << fractionalDelayAtStart
+        << " fractionalDelayAtEnd=" << fractionalDelayAtEnd
+        << " d0=" << -float(d0)
+        << " d1=" << -float(d1)
         << std::endl;
-  
     }
 
     hostToDeviceStream.memcpyHtoDAsync(devFracDelays, hostDelays, sizeof(float) * ps.nrStations() * 2);
-     
+
     enqueueHostToDeviceTransfer(hostToDeviceStream, devInputBuffer, pipeline.samplesCounter);
 
     hostToDeviceStream.record(inputTransferReady);

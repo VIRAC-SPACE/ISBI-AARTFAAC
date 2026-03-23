@@ -66,9 +66,11 @@ void InputSection::enqueueHostToDeviceCopy(cu::Stream &stream, cu::DeviceMemory 
     }
 
     double Fs = (double)ps.sampleRate();
-    int delay = static_cast<int>(std::floor(delayAtStart * Fs + 0.5));
+    double x0 = delayAtStart * Fs;
+    int delay = (int)std::floor(x0);
 
-    std::cout << "inputSection=" << delay << std::endl;
+    std::cout << "InputSection" << std::endl;
+    std::cout << "time=" << (int64_t)startTime <<  " delay=" << delay << std::endl;
 
     unsigned nrHistorySamples = (NR_TAPS - 1) * ps.nrChannelsPerSubbandBeforeFilter();
 
