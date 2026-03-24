@@ -273,13 +273,6 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
     const double Fs = (double)ps.sampleRate();
     const double N  = (double)ps.nrSamplesPerChannel();
 
-    auto fracDelay = [&](double delaySec) {
-      double k = std::floor(delaySec * Fs + 0.5);
-      return delaySec - k / Fs;
-    };
-
-    std::cout << "time=" << time << std::endl;
-
     auto getDelayAt = [&](const std::map<int64_t, double>& delays, int64_t timestamp) {
         auto it = delays.find(timestamp);
         if (it == delays.end()) {
@@ -309,8 +302,8 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
       double delayInSamplesAtStart = delayAtStart * Fs;
       double delayInSamplesAtEnd = delayAtEnd * Fs;
 
-      int integerDelayAtStart = std::floor(delayInSamplesAtStart);
-      int integerDelayAtEnd = std::floor(delayInSamplesAtEnd);
+      int integerDelayAtStart = static_cast<int>(std::llround(delayInSamplesAtStart));
+      int integerDelayAtEnd = static_cast<int>(std::llround(delayInSamplesAtEnd));
 
       double fractionalDelayAtStart = delayInSamplesAtStart - (double)integerDelayAtStart;
       double fractionalDelayAtEnd = delayInSamplesAtEnd - (double)integerDelayAtEnd;

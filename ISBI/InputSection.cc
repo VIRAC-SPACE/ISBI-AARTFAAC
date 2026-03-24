@@ -66,8 +66,8 @@ void InputSection::enqueueHostToDeviceCopy(cu::Stream &stream, cu::DeviceMemory 
     }
 
     double Fs = (double)ps.sampleRate();
-    double x0 = delayAtStart * Fs;
-    int delay = (int)std::floor(x0);
+    double delayInSamples = delayAtStart * Fs;
+    int delay = static_cast<int>(std::llround(delayInSamples));
 
     std::cout << "InputSection" << std::endl;
     std::cout << "time=" << (int64_t)startTime <<  " delay=" << delay << std::endl;

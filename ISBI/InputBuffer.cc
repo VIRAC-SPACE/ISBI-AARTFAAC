@@ -345,6 +345,7 @@ void InputBuffer::inputThreadBody() {
           timeStamp = 0;
         } else {
           printedImpossibleTimeStampWarning = false;
+          firstPacket = nextPacket;
         }
       }
 
