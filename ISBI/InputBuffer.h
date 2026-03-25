@@ -42,7 +42,7 @@ private:
     SparseSet<TimeStamp> getCurrentValidData(const TimeStamp &earlyStartTime, const TimeStamp &endTime);
 
     const ISBI_Parset	&ps;
-    unsigned			myFirstSubband, myNrSubbands, myFirstStation, myNrStations, nrRingBufferSamplesPerSubband, nrTimesPerPacket, nrHistorySamples;
+    unsigned			myFirstSubband, myNrSubbands, myFirstStation, myNrStations, nrRingBufferSamplesPerSubband, nrTimesPerPacket;
     std::vector<uint32_t>	mappedChannels;
     std::vector<int8_t *>	ringBufferBases;
 

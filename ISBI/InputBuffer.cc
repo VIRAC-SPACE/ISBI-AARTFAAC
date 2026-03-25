@@ -169,10 +169,9 @@ InputBuffer::InputBuffer(const ISBI_Parset &ps, MultiArrayHostBuffer<char, 4> ho
   }()),
   hostRingBuffer(hostRingBuffer),
   nrTimesPerPacket(nrTimesPerPacket),
-  nrHistorySamples((NR_TAPS - 1) * ps.nrChannelsPerSubbandBeforeFilter()),
   latestWriteTime(0, ps.clockSpeed()),
   stop(false),
-  readerAndWriterSynchronization(nrRingBufferSamplesPerSubband, ps.startTime() - nrHistorySamples - ps.maxDelay()),
+  readerAndWriterSynchronization(nrRingBufferSamplesPerSubband, ps.startTime() - ps.maxDelay()),
   inputThread(&InputBuffer::inputThreadBody, this),
   logThread(&InputBuffer::logThreadBody, this),
   noInputThreadPtr(ps.realTime() ? new std::thread(&InputBuffer::noInputThreadBody, this) : 0)
@@ -273,13 +272,13 @@ void InputBuffer::inputThreadBody() {
   TimeStamp expectedTimeStamp(0, ps.clockSpeed()), stopTime = ps.stopTime() + ps.nrSamplesPerSubbandBeforeFilter();
 #if defined FAKE_TIMES
   //expectedTimeStamp = ps.startTime() - nrHistorySamples - 20;
-  expectedTimeStamp = TimeStamp::now(ps.clockSpeed()) - nrHistorySamples - 20;
+  expectedTimeStamp = TimeStamp::now(ps.clockSpeed()) - 20;
 #pragma omp critical (clog)
   std::clog<<"expectedTimeStamp " << expectedTimeStamp << std::endl;
 
 #endif
 
-  TimeStamp seekTime = ps.startTime() - nrHistorySamples - ps.maxDelay();
+  TimeStamp seekTime = ps.startTime() - ps.maxDelay();
 
   VDIFStream vdifStream(ps.inputDescriptors()[myFirstStation], ps.sampleRate(), seekTime);
   assert(&vdifStream != nullptr);
@@ -451,7 +450,7 @@ SparseSet<TimeStamp> InputBuffer::getCurrentValidData(const TimeStamp &earlyStar
 
 void InputBuffer::fillInMissingSamples(const TimeStamp &startTime, unsigned subband, SparseSet<TimeStamp> &validData)
 {
-  TimeStamp earlyStartTime   = startTime - nrHistorySamples - ps.maxDelay();
+  TimeStamp earlyStartTime   = startTime - ps.maxDelay();
   TimeStamp endTime          = startTime + ps.nrSamplesPerSubbandBeforeFilter() + ps.maxDelay();
 
   validData = getCurrentValidData(earlyStartTime, endTime);
@@ -470,8 +469,7 @@ void InputBuffer::fillInMissingSamples(const TimeStamp &startTime, unsigned subb
     }
   }
 
-  unsigned nrHistorySamples = (NR_TAPS - 1) * ps.nrChannelsPerSubbandBeforeFilter();
-  unsigned nrSamples        = nrHistorySamples + ps.nrSamplesPerSubbandBeforeFilter();
+  unsigned nrSamples        = ps.nrSamplesPerSubbandBeforeFilter();
 
   if (subband == 0)
 #pragma omp critical (clog)
@@ -481,7 +479,7 @@ void InputBuffer::fillInMissingSamples(const TimeStamp &startTime, unsigned subb
 
 void InputBuffer::startReadTransaction(const TimeStamp &startTime)
 {
-  TimeStamp earlyStartTime   = startTime - nrHistorySamples - ps.maxDelay();
+  TimeStamp earlyStartTime   = startTime - ps.maxDelay();
   TimeStamp endTime          = startTime + ps.nrSamplesPerSubbandBeforeFilter() + ps.maxDelay();
 
   readerAndWriterSynchronization.startRead(earlyStartTime, endTime);

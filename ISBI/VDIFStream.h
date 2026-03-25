@@ -10,7 +10,7 @@
 #include <vector>
 #include <ctime>
 
-static constexpr int8_t DECODER_LEVEL_2BIT[] = { -3, -1, 1, 3 };
+static constexpr int8_t DECODER_LEVEL_2BIT[] = { -7, -2, 2, 7 };
 static constexpr uint32_t maxPacketSize = 8032;
 
 enum HeaderStatus {

@@ -48,11 +48,21 @@ void InputSection::enqueueHostToDeviceCopy(cu::Stream &stream, cu::DeviceMemory 
   int referenceStation = 0;
   auto getDelayAt = [&](const std::map<int64_t, double>& delays, int64_t timestamp) {
     auto it = delays.find(timestamp);
-    if (it == delays.end()) {
-      throw std::runtime_error("Timestamp not found in delay map");
+    if (it != delays.end()) {
+      return it->second;
     }
 
-    return it->second;
+    auto upper = delays.lower_bound(timestamp);
+    if (upper == delays.begin() || upper == delays.end()) {
+      throw std::runtime_error("Timestamp outside delay map range");
+    }
+
+    auto lower = std::prev(upper);
+    const double t0 = static_cast<double>(lower->first);
+    const double t1 = static_cast<double>(upper->first);
+    const double w = (static_cast<double>(timestamp) - t0) / (t1 - t0);
+
+    return lower->second + w * (upper->second - lower->second);
   };
 
   for (unsigned station = 0; station < ps.nrStations(); station++) {
@@ -69,12 +79,7 @@ void InputSection::enqueueHostToDeviceCopy(cu::Stream &stream, cu::DeviceMemory 
     double delayInSamples = delayAtStart * Fs;
     int delay = static_cast<int>(std::llround(delayInSamples));
 
-    std::cout << "InputSection" << std::endl;
-    std::cout << "time=" << (int64_t)startTime <<  " delay=" << delay << std::endl;
-
-    unsigned nrHistorySamples = (NR_TAPS - 1) * ps.nrChannelsPerSubbandBeforeFilter();
-
-    TimeStamp earlyStartTime   = startTime - nrHistorySamples + delay;
+    TimeStamp earlyStartTime   = startTime + delay;
     TimeStamp endTime          = startTime + ps.nrSamplesPerSubbandBeforeFilter() + delay;
 
     unsigned startTimeIndex = earlyStartTime % ps.nrRingBufferSamplesPerSubband();

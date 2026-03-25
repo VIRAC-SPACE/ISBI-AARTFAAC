@@ -63,7 +63,7 @@ void CorrelatorWorkQueue::computeWeights(const std::vector<SparseSet<TimeStamp> 
 {
   for (unsigned stat2 = 0, pair = 0; stat2 < validData.size(); stat2 ++)
     for (unsigned stat1 = 0; stat1 <= stat2 && pair < sizeof(visibilities->header.weights) / sizeof(visibilities->header.weights[0]); stat1 ++, pair ++)
-      visibilities->header.weights[pair] = ((uint32_t) (int64_t) (validData[stat1] & validData[stat2]).count() / ps.nrChannelsPerSubbandBeforeFilter() - (NR_TAPS - 1)) * ps.channelIntegrationFactor();
+      visibilities->header.weights[pair] = ((uint32_t) (int64_t) (validData[stat1] & validData[stat2]).count() / ps.nrChannelsPerSubbandBeforeFilter()) * ps.channelIntegrationFactor();
 }
 
 
@@ -79,8 +79,7 @@ void CorrelatorWorkQueue::doSubband(const TimeStamp &time, unsigned subband)
       pipeline.inputSection.enqueueHostToDeviceCopy(stream, devInputBuffer, counter, time, subband);
     };
 
-    unsigned nrHistorySamples = (NR_TAPS - 1) * ps.nrChannelsPerSubbandBeforeFilter();
-    unsigned startIndex = (time - nrHistorySamples) % ps.nrRingBufferSamplesPerSubband();
+    unsigned startIndex = time % ps.nrRingBufferSamplesPerSubband();
     deviceInstance.doSubband(time, subband, enqueueCopyInputBuffer, pipeline.inputSection.hostRingBuffers[subband], hostDelays, hostDelays, visibilities->hostVisibilities, startIndex);
 
     visibilities->startTime = time;

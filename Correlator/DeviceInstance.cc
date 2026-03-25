@@ -57,10 +57,11 @@ DeviceInstance::DeviceInstance(CorrelatorPipeline &pipeline, unsigned deviceNr)
 	.isPurelyReal = true
     };
 
-    filterArgs.firFilter = tcc::FilterArgs::FIR_Filter {
-    	.nrTaps = 16,
-        .sampleFormat = tcc::FilterArgs::Format::fp32
-    };
+    // filterArgs.firFilter = tcc::FilterArgs::FIR_Filter {
+    // 	.nrTaps = 16,
+    //     .sampleFormat = tcc::FilterArgs::Format::fp32
+    // };
+    filterArgs.firFilter = std::nullopt;
 
     filterArgs.fft = tcc::FilterArgs::FFT {
     	.sampleFormat = tcc::FilterArgs::Format::fp32,
@@ -97,10 +98,11 @@ DeviceInstance::DeviceInstance(CorrelatorPipeline &pipeline, unsigned deviceNr)
 	.isPurelyReal = true
     };
 
-    filterArgs.firFilter = tcc::FilterArgs::FIR_Filter {
-    	.nrTaps = 16,
-        .sampleFormat = tcc::FilterArgs::Format::fp32
-    };
+    // filterArgs.firFilter = tcc::FilterArgs::FIR_Filter {
+    // 	.nrTaps = 16,
+    //     .sampleFormat = tcc::FilterArgs::Format::fp32
+    // };
+    filterArgs.firFilter = std::nullopt;
 
     filterArgs.fft = tcc::FilterArgs::FFT {
     	.sampleFormat = tcc::FilterArgs::Format::fp32,
@@ -184,7 +186,7 @@ DeviceInstance::DeviceInstance(CorrelatorPipeline &pipeline, unsigned deviceNr)
 DeviceInstanceWithoutUnifiedMemory::DeviceInstanceWithoutUnifiedMemory(CorrelatorPipeline &pipeline, unsigned deviceNr)
 :
   DeviceInstance(pipeline, deviceNr),
-  devInputBuffer((size_t) ps.nrStations() * ps.nrPolarizations() * (ps.nrSamplesPerChannel() + NR_TAPS - 1) * ps.nrChannelsPerSubbandBeforeFilter() * ps.nrBytesPerRealSample()),
+  devInputBuffer((size_t) ps.nrStations() * ps.nrPolarizations() * (ps.nrSamplesPerChannel()) * ps.nrChannelsPerSubbandBeforeFilter() * ps.nrBytesPerRealSample()),
   devDelaysAtBegin(ps.nrBeams() * ps.nrStations() * ps.nrPolarizations() * sizeof(float)),
   devDelaysAfterEnd(ps.nrBeams() * ps.nrStations() * ps.nrPolarizations() * sizeof(float)),
   devFracDelays(sizeof(float) * ps.nrStations() * 2),
@@ -238,7 +240,6 @@ void DeviceInstance::doSubband(const TimeStamp &time,
   {
     std::lock_guard<std::mutex> lock(enqueueMutex);
 
-    std::cout << "DeviceInstance:doSubband\n";
     filter.launchAsync(executeStream,
 		         devCorrectedData,
 			 cu::DeviceMemory(hostInputBuffer));
@@ -274,13 +275,23 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
     const double N  = (double)ps.nrSamplesPerChannel();
 
     auto getDelayAt = [&](const std::map<int64_t, double>& delays, int64_t timestamp) {
-        auto it = delays.find(timestamp);
-        if (it == delays.end()) {
-          throw std::runtime_error("Timestamp not found in delay map");
-        }
-
+      auto it = delays.find(timestamp);
+      if (it != delays.end()) {
         return it->second;
-     };
+      }
+
+      auto upper = delays.lower_bound(timestamp);
+      if (upper == delays.begin() || upper == delays.end()) {
+        throw std::runtime_error("Timestamp outside delay map range");
+      }
+
+      auto lower = std::prev(upper);
+      const double t0 = static_cast<double>(lower->first);
+      const double t1 = static_cast<double>(upper->first);
+      const double w = (static_cast<double>(timestamp) - t0) / (t1 - t0);
+
+      return lower->second + w * (upper->second - lower->second);
+    };
 
     float hostDelays[ps.nrStations()][2];
 
@@ -311,19 +322,14 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
       double d0 = fractionalDelayAtStart / Fs;
       double d1 = (delayAtEnd - delayAtStart) / N;
 
-      hostDelays[station][0] = -(float)d0;
-      hostDelays[station][1] = -(float)d1;
-
-      std::cout << "station=" << station
-        << " delayInSamplesAtStart=" << delayInSamplesAtStart 
-        << " delayInSamplesAtEnd=" << delayInSamplesAtEnd
-        << " integerDelayAtStart=" << integerDelayAtStart
-        << " integerDelayAtEnd=" << integerDelayAtEnd
-        << " fractionalDelayAtStart=" << fractionalDelayAtStart
-        << " fractionalDelayAtEnd=" << fractionalDelayAtEnd
-        << " d0=" << -float(d0)
-        << " d1=" << -float(d1)
-        << std::endl;
+      const bool mirrored = ((subband + 1) % 2) != 0;
+      if (!mirrored) {
+        hostDelays[station][0] = -(float)d0;
+        hostDelays[station][1] = -(float)d1;
+      } else {
+        hostDelays[station][0] = (float)d0;
+        hostDelays[station][1] = (float)d1;
+      }
     }
 
     hostToDeviceStream.memcpyHtoDAsync(devFracDelays, hostDelays, sizeof(float) * ps.nrStations() * 2);
@@ -345,7 +351,6 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
 
     const double subbandCenter = ps.centerFrequencies()[subband];
     const bool mirrored = ((subband + 1) % 2) != 0;
-    std::cout << subband << " " << mirrored << std::endl;
 
     if (!mirrored) {
       filter.launchAsync(executeStream, devCorrectedData, devInputBuffer, devFracDelays, subbandCenter);

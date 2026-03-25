@@ -31,7 +31,7 @@ int main(int argc, char **argv)
     //CorrelatorPipeline pipeline(ps).doWork();
     CorrelatorPipeline pipeline(ps);
 
-    MultiArrayHostBuffer<char, 4> hostInputBuffer(boost::extents[ps.nrStations()][ps.nrPolarizations()][(ps.nrSamplesPerChannel() + NR_TAPS - 1) * ps.nrChannelsPerSubbandBeforeFilter()][ps.nrBytesPerRealSample()]);
+    MultiArrayHostBuffer<char, 4> hostInputBuffer(boost::extents[ps.nrStations()][ps.nrPolarizations()][(ps.nrSamplesPerChannel()) * ps.nrChannelsPerSubbandBeforeFilter()][ps.nrBytesPerRealSample()]);
     MultiArrayHostBuffer<float, 3> hostDelaysAtBegin(boost::extents[ps.nrBeams()][ps.nrStations()][ps.nrPolarizations()]);
     MultiArrayHostBuffer<float, 3> hostDelaysAfterEnd(boost::extents[ps.nrBeams()][ps.nrStations()][ps.nrPolarizations()]);
     //MultiArrayHostBuffer<float, 2> hostPhaseOffsets(boost::extents[ps.nrBeams()][ps.nrPolarizations()]);
