@@ -314,16 +314,18 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
       hostDelays[station][0] = -(float)d0;
       hostDelays[station][1] = -(float)d1;
 
-      std::cout << "station=" << station
-        << " delayInSamplesAtStart=" << delayInSamplesAtStart 
-        << " delayInSamplesAtEnd=" << delayInSamplesAtEnd
-        << " integerDelayAtStart=" << integerDelayAtStart
-        << " integerDelayAtEnd=" << integerDelayAtEnd
-        << " fractionalDelayAtStart=" << fractionalDelayAtStart
-        << " fractionalDelayAtEnd=" << fractionalDelayAtEnd
-        << " d0=" << -float(d0)
-        << " d1=" << -float(d1)
-        << std::endl;
+      if (subband == 0) {
+        std::cout << "station=" << station
+          << " delayInSamplesAtStart=" << delayInSamplesAtStart 
+          << " delayInSamplesAtEnd=" << delayInSamplesAtEnd
+          << " integerDelayAtStart=" << integerDelayAtStart
+          << " integerDelayAtEnd=" << integerDelayAtEnd
+          << " fractionalDelayAtStart=" << fractionalDelayAtStart
+          << " fractionalDelayAtEnd=" << fractionalDelayAtEnd
+          << " d0=" << -float(d0)
+          << " d1=" << -float(d1)
+          << std::endl;
+      }
     }
 
     hostToDeviceStream.memcpyHtoDAsync(devFracDelays, hostDelays, sizeof(float) * ps.nrStations() * 2);
@@ -345,7 +347,6 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
 
     const double subbandCenter = ps.centerFrequencies()[subband];
     const bool mirrored = ((subband + 1) % 2) != 0;
-    std::cout << subband << " " << mirrored << std::endl;
 
     if (!mirrored) {
       filter.launchAsync(executeStream, devCorrectedData, devInputBuffer, devFracDelays, subbandCenter);
