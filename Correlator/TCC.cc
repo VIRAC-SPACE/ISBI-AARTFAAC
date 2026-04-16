@@ -26,10 +26,17 @@ TCC::TCC(const cu::Device &device, const CorrelatorParset &ps)
                                     + std::to_string(ps.nrPolarizations()) + "]["
                                     + std::to_string(ps.nrPolarizations()) + "];"
       "template <bool add> __device__ inline void storeVisibility(Visibilities visibilities, "
-      "unsigned channel, unsigned recvY, unsigned recvX, unsigned polY, unsigned polX, float2 visibility)"
+      "unsigned channel, unsigned recvY, unsigned recvX, unsigned polY, unsigned polX, Visibility visibility)"
       "{"
-        "unsigned baseline = recvY * (recvY + 1) / 2 + recvX;"
-        "visibilities[baseline][channel][polY][polX] = make_float2(visibility.x, visibility.y);"
+        "unsigned baseline = recvX * (recvX + 1) / 2 + recvY;"
+        "float2 value = make_float2(visibility.x, visibility.y);"
+        "if (add) {"
+          "visibilities[baseline][channel][polY][polX] = make_float2("
+            "visibilities[baseline][channel][polY][polX].x + value.x, "
+            "visibilities[baseline][channel][polY][polX].y + value.y);"
+        "} else {"
+          "visibilities[baseline][channel][polY][polX] = value;"
+        "}"
       "}")
 {
   if (ps.nrPolarizations() != 2)

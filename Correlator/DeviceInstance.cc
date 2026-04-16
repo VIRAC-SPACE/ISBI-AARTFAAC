@@ -20,6 +20,111 @@ inline static cpu_set_t cpu_and(const cpu_set_t &a, const cpu_set_t &b)
 }
 #endif
 
+#include <map>
+#include <vector>
+#include <stdexcept>
+#include <cstdint>
+#include <cmath>
+#include <algorithm>
+
+namespace {
+  auto getDelayAt (const std::map<int64_t, double>& delays, int64_t timestamp) {
+    if (delays.empty()) {
+      throw std::runtime_error("Delay map is empty");
+    }
+
+    // Exact match
+    auto exact = delays.find(timestamp);
+    if (exact != delays.end()) {
+      return exact->second;
+    }
+
+    // Need at least 2 points to interpolate at all
+    if (delays.size() < 2) {
+      throw std::runtime_error("Not enough points to interpolate");
+    }
+
+    // Out of range check
+    if (timestamp < delays.begin()->first || timestamp > delays.rbegin()->first) {
+      throw std::runtime_error("Timestamp outside interpolation range");
+    }
+
+    // Flatten map into vectors for indexed access
+    std::vector<double> x;
+    std::vector<double> y;
+    x.reserve(delays.size());
+    y.reserve(delays.size());
+
+    for (const auto& [ts, val] : delays) {
+      x.push_back(static_cast<double>(ts));
+      y.push_back(val);
+    }
+
+    const int n = static_cast<int>(x.size());
+
+    // Find interval [x[i], x[i+1]] containing timestamp
+    auto upper = std::upper_bound(x.begin(), x.end(), static_cast<double>(timestamp));
+    int i = static_cast<int>(std::distance(x.begin(), upper)) - 1;
+
+    // Safety clamp
+    i = std::max(0, std::min(i, n - 2));
+
+    const double xt = static_cast<double>(timestamp);
+
+    // Fallback to linear interpolation if not enough points for Akima
+    if (n < 5) {
+      double t = (xt - x[i]) / (x[i + 1] - x[i]);
+      return y[i] + t * (y[i + 1] - y[i]);
+    }
+
+    // Slopes between consecutive points
+    std::vector<double> m(n - 1);
+    for (int j = 0; j < n - 1; ++j) {
+      m[j] = (y[j + 1] - y[j]) / (x[j + 1] - x[j]);
+    }
+
+    // Derivatives at each point
+    std::vector<double> d(n);
+
+    auto akimaDerivative = [&](int k) -> double {
+      // For edges, fall back to simpler estimates
+      if (k < 2 || k > n - 3) {
+        if (k == 0) return m[0];
+        if (k == 1) return 0.5 * (m[0] + m[1]);
+        if (k == n - 2) return 0.5 * (m[n - 3] + m[n - 2]);
+        if (k == n - 1) return m[n - 2];
+      }
+
+      double w1 = std::abs(m[k + 1] - m[k]);
+      double w2 = std::abs(m[k - 1] - m[k - 2]);
+
+      if (w1 + w2 == 0.0) {
+        return 0.5 * (m[k - 1] + m[k]);
+      }
+
+      return (w1 * m[k - 1] + w2 * m[k]) / (w1 + w2);
+    };
+
+    for (int k = 0; k < n; ++k) {
+      d[k] = akimaDerivative(k);
+    }
+
+    // Cubic Hermite interpolation on interval [i, i+1]
+    double h = x[i + 1] - x[i];
+    double t = (xt - x[i]) / h;
+
+    double h00 =  2.0 * t * t * t - 3.0 * t * t + 1.0;
+    double h10 =        t * t * t - 2.0 * t * t + t;
+    double h01 = -2.0 * t * t * t + 3.0 * t * t;
+    double h11 =        t * t * t -       t * t;
+
+    return h00 * y[i]
+      + h10 * h * d[i]
+      + h01 * y[i + 1]
+      + h11 * h * d[i + 1];
+  };
+}
+
 
 extern const char _binary_Correlator_Kernels_Transpose_cu_start, _binary_Correlator_Kernels_Transpose_cu_end;
 
@@ -75,7 +180,7 @@ DeviceInstance::DeviceInstance(CorrelatorPipeline &pipeline, unsigned deviceNr)
     };
     
     filterArgs.output = tcc::FilterArgs::Output {
-      .sampleFormat = tcc::FilterArgs::Format::fp16,
+      .sampleFormat = tcc::FilterArgs::Format::i8,
       .scaleFactor = std::nullopt
     };
 
@@ -115,7 +220,7 @@ DeviceInstance::DeviceInstance(CorrelatorPipeline &pipeline, unsigned deviceNr)
     };
     
     filterArgs.output = tcc::FilterArgs::Output {
-      .sampleFormat = tcc::FilterArgs::Format::fp16,
+      .sampleFormat = tcc::FilterArgs::Format::i8,
       .scaleFactor = std::nullopt
     };
 
@@ -272,15 +377,6 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
     int referenceStation = 0;
     const double Fs = (double)ps.sampleRate();
     const double N  = (double)ps.nrSamplesPerChannel();
-
-    auto getDelayAt = [&](const std::map<int64_t, double>& delays, int64_t timestamp) {
-        auto it = delays.find(timestamp);
-        if (it == delays.end()) {
-          throw std::runtime_error("Timestamp not found in delay map");
-        }
-
-        return it->second;
-     };
 
     float hostDelays[ps.nrStations()][2];
 
