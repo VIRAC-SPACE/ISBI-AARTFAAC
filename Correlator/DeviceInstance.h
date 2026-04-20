@@ -27,7 +27,7 @@ class DeviceInstance
 		   std::function<void (cu::Stream &, cu::DeviceMemory &devInputBuffer, PerformanceCounter &)> &enqueueHostToDeviceTransfer,
 		   const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
 		   const MultiArrayHostBuffer<float, 2> &hostDelays,
-		   MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities,
+		   MultiArrayHostBuffer<std::complex<float>, 4> &hostVisibilities,
 		   unsigned startIndex = 0
 		  );
 
@@ -35,7 +35,7 @@ class DeviceInstance
 		   unsigned subband,
 		   const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
 		   const MultiArrayHostBuffer<float, 2> &hostDelays,
-		   MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities
+		   MultiArrayHostBuffer<std::complex<float>, 4> &hostVisibilities
 		  );
 
     CorrelatorPipeline		&pipeline;
@@ -80,7 +80,7 @@ class DeviceInstanceWithoutUnifiedMemory : public DeviceInstance
 		   std::function<void (cu::Stream &, cu::DeviceMemory &devInputBuffer, PerformanceCounter &)> &enqueueHostToDeviceTransfer,
 		   const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
 		   const MultiArrayHostBuffer<float, 2> &hostDelays,
-		   MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities,
+		   MultiArrayHostBuffer<std::complex<float>, 4> &hostVisibilities,
 		   unsigned startIndex = 0
 		  );
 

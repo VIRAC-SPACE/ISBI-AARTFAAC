@@ -8,8 +8,7 @@ Filter::Filter(const cu::Device &device, const CorrelatorParset &ps, bool mirror
       .nrSamplesPerChannel          = ps.nrSamplesPerChannel(),
       .nrPolarizations              = ps.nrPolarizations(),
       .input                        = tcc::FilterArgs::Input {
-          .sampleFormat             = ps.nrBitsPerSample() == 8 ? tcc::FilterArgs::Format::i8 :
-                                      tcc::FilterArgs::Format::i16,
+          .sampleFormat             = tcc::FilterArgs::Format::i8,
           .isPurelyReal             = true,
       },
       .firFilter                    = tcc::FilterArgs::FIR_Filter {
@@ -28,14 +27,9 @@ Filter::Filter(const cu::Device &device, const CorrelatorParset &ps, bool mirror
       }) : std::nullopt,
       .bandPassCorrection           = std::nullopt,
       .output                       = tcc::FilterArgs::Output {
-          .sampleFormat             = ps.nrBitsPerSample() == 8 ? tcc::FilterArgs::Format::i8 :
-                                      tcc::FilterArgs::Format::i16,
+          .sampleFormat             = tcc::FilterArgs::Format::fp16,
       },
   }) {
-
-    if (ps.nrBitsPerSample() != 8) {
-      throw Parset::Error("currently supports only 8-bit samples");
-    }
 }
 
 void Filter::launchAsync(cu::Stream &stream,
