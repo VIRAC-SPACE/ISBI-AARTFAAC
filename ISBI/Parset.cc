@@ -42,6 +42,7 @@ ISBI_Parset::ISBI_Parset(int argc, char **argv)
 #endif
     ("nrRingBufferSamplesPerSubband,T", value<unsigned>(&_nrRingBufferSamplesPerSubband))
     ("visibilitiesIntegration,I", value<unsigned>(&_visibilitiesIntegration))
+    ("delayFile,delayFile", value<std::string>()->notifier([this] (std::string arg) { _delayFile = arg; } ))
   ;
 
 

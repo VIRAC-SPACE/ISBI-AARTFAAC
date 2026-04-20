@@ -14,7 +14,7 @@ std::vector<std::map<int64_t, double>> DelayCorrection::readDelayFile() const {
   std::vector<std::map<int64_t, double>> delays;
   delays.reserve(ps.nrStations());
 
-  for (unsigned station = 0, station < ps.nrStations(); ++station) {
+  for (unsigned station = 0; station < ps.nrStations(); ++station) {
     uint32_t n;
     delayFile.read(reinterpret_cast<char*>(&n), sizeof(uint32_t));
 
@@ -24,7 +24,7 @@ std::vector<std::map<int64_t, double>> DelayCorrection::readDelayFile() const {
       int64_t ts;
       double delay;
 
-      delayFile.read(reinterpret_cast<char*>(&ts), sizof(int64_t));
+      delayFile.read(reinterpret_cast<char*>(&ts), sizeof(int64_t));
       delayFile.read(reinterpret_cast<char*>(&delay), sizeof(double));
 
       stationDelays[ts] = delay;
@@ -41,7 +41,7 @@ DelayCorrection::DelayCorrection(const ISBI_Parset &ps) :
   rawDelays(readDelayFile()),
   referenceStation(0) {}
 
-double DelayCorrection::getDelayAt(const TimeStamp &timestamp, unsigned station) const {
+double DelayCorrection::getDelayAt(const int64_t &timestamp, unsigned station) const {
   if (rawDelays[station].empty()) {
     throw std::runtime_error("Delay map is empty.");
   }
@@ -72,8 +72,8 @@ double DelayCorrection::getDelayAt(const TimeStamp &timestamp, unsigned station)
   return v1 + ratio * (v2 - v1);
 }
 
-std::vector<StationDelay> DelayCorrection::stationDelays(const TimeStamp &time) const {
-  std::vector<StationDelay> result(ps.nrStations());
+std::vector<DelayCorrection::StationDelay> DelayCorrection::stationDelays(const TimeStamp &time) const {
+  std::vector<DelayCorrection::StationDelay> result(ps.nrStations());
 
   TimeStamp endTime = time + ps.nrSamplesPerSubbandBeforeFilter();
   double Fs = (double)ps.sampleRate();

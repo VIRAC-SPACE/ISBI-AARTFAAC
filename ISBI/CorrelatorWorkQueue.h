@@ -24,7 +24,7 @@ class CorrelatorWorkQueue
     ISBI_CorrelatorPipeline    &pipeline;
     DeviceInstance		   &deviceInstance;
 
-    MultiArrayHostBuffer<float, 3> hostDelays;
+    MultiArrayHostBuffer<float, 2> hostDelays;
 
   private:
     bool hasValidData(std::vector<SparseSet<TimeStamp>> &);

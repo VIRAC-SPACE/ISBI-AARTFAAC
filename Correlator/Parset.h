@@ -23,7 +23,6 @@ class CorrelatorParset : public Parset
     unsigned _nrVisibilityPolarizations;
     unsigned _nrOutputChannelsPerSubband;
 
-    std::string delayFile;
 };
 
 #endif

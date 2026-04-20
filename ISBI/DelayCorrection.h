@@ -26,9 +26,9 @@ class DelayCorrection {
 
     std::vector<std::map<int64_t, double>> rawDelays;
 
-    std::vector<std::map<int64_t, double>> readDelayFiles() const;
+    std::vector<std::map<int64_t, double>> readDelayFile() const;
 
-    double getDelayAt(const TimeStamp &, unsigned station) const;
+    double getDelayAt(const int64_t &, unsigned station) const;
 };
 
 #endif

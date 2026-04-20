@@ -15,7 +15,6 @@ CorrelatorParset::CorrelatorParset(int argc, char **argv, bool throwExceptionOnU
   allowed_options.add_options()
     ("nrOutputChannelsPerSubband,C", value<unsigned>(&_nrOutputChannelsPerSubband)->default_value(0))
     ("correlationMode,m", value<unsigned>(&_correlationMode)->default_value(0xF))
-    ("delayFile,delayFile", value<std::string>()->notifier([this] (std::string arg) { delayFile = arg; } ))
   ;
 
   variables_map vm;
