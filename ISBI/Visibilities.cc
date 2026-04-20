@@ -33,7 +33,7 @@ Visibilities &Visibilities::operator += (const Visibilities &other)
     for (unsigned baseline = 0; baseline < ps.nrBaselines(); baseline ++)
       for (unsigned pol0 = 0; pol0 < ps.nrPolarizations(); pol0++)
         for (unsigned pol1 = 0; pol1 < ps.nrPolarizations(); pol1++)
-          hostVisibilities[channel][baseline][pol0][pol1] = other.hostVisibilities[channel][baseline][pol0][pol1]
+          hostVisibilities[channel][baseline][pol0][pol1] = other.hostVisibilities[channel][baseline][pol0][pol1];
 #endif
 
   for (unsigned i = 0; i < sizeof(header.weights) / sizeof(header.weights[0]); i ++)

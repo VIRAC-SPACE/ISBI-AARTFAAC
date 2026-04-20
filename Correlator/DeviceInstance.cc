@@ -488,7 +488,7 @@ void DeviceInstance::doSubband(const TimeStamp &time,
 			       const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
 			       const MultiArrayHostBuffer<float, 3> &hostDelaysAtBegin,
 			       const MultiArrayHostBuffer<float, 3> &hostDelaysAfterEnd,
-			       MultiArrayHostBuffer<std::complex<float>, 4> &hostVisibilities
+			       MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities
 			      )
 {
   std::function<void (cu::Stream &, cu::DeviceMemory &, PerformanceCounter &)> enqueueHostToDeviceTransfer = [&] (cu::Stream &stream, cu::DeviceMemory &devInputBuffer, PerformanceCounter &counter) {
