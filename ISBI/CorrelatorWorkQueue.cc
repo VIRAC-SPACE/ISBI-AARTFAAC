@@ -22,7 +22,7 @@ CorrelatorWorkQueue::CorrelatorWorkQueue(ISBI_CorrelatorPipeline &pipeline, Devi
   bufferFull(0)
 #endif
 {
-  memset(hostDelays.origin(), 9, hostDelays.bytesize());
+  memset(hostDelays.origin(), 0, hostDelays.bytesize());
 }
 
 
