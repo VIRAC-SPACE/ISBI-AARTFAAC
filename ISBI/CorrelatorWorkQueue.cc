@@ -74,18 +74,18 @@ void CorrelatorWorkQueue::doSubband(const TimeStamp &time, unsigned subband)
 
   if (hasValidData(validData) && inTime(time)) {
     std::unique_ptr<Visibilities> visibilities = pipeline.outputSection.getVisibilitiesBuffer(subband);
-    std::vector<int64_t> integerStationDelays(ps.nrStations, 0);
+    std::vector<int64_t> integerStationDelays(ps.nrStations(), 0);
 
     // TODO:
     // if (pipeline.delayCorrection) {
-    std::vector<DelayCorrection::StationDelays> stationDelays = pipeline.delayCorrection.stationDelays(time);
+    std::vector<DelayCorrection::StationDelay> stationDelays = pipeline.delayCorrection.stationDelays(time);
 
     if (stationDelays.size() != ps.nrStations()) {
       throw std::runtime_error("unexpected amount of delays");
     }
 
     for (unsigned station = 0; station < ps.nrStations(); ++station) {
-      integerStationDelay[station] = stationDelays[station].integerSamples;
+      integerStationDelays[station] = stationDelays[station].integerSamples;
       hostDelays[station][0] = stationDelays[station].d0;
       hostDelays[station][1] = stationDelays[station].d1;
     }

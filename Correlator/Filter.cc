@@ -11,12 +11,12 @@ Filter::Filter(const cu::Device &device, const CorrelatorParset &ps, bool mirror
           .sampleFormat             = ps.nrBitsPerSample() == 8 ? tcc::FilterArgs::Format::i8 :
                                       tcc::FilterArgs::Format::i16,
           .isPurelyReal             = true,
-      }.
+      },
       .firFilter                    = tcc::FilterArgs::FIR_Filter {
           .nrTaps                   = NR_TAPS,
           .sampleFormat             = tcc::FilterArgs::Format::fp32,
       },
-      .fft                          = tcc::FilterArgs::FIR_Filter {
+      .fft                          = tcc::FilterArgs::FFT {
           .sampleFormat             = tcc::FilterArgs::Format::fp32,
           .shift                    = false,
           .mirror                   = mirror,
@@ -26,7 +26,7 @@ Filter::Filter(const cu::Device &device, const CorrelatorParset &ps, bool mirror
           .polynomialOrder          = 1,
           .separatePerPolarization  = false,
       }) : std::nullopt,
-      .bandpassCorrection           = std::nullopt,
+      .bandPassCorrection           = std::nullopt,
       .output                       = tcc::FilterArgs::Output {
           .sampleFormat             = ps.nrBitsPerSample() == 8 ? tcc::FilterArgs::Format::i8 :
                                       tcc::FilterArgs::Format::i16,

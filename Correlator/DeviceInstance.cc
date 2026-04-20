@@ -17,6 +17,14 @@ inline static cpu_set_t cpu_and(const cpu_set_t &a, const cpu_set_t &b)
 }
 #endif
 
+namespace {
+inline unsigned filterIndexForSubband(unsigned subband)
+{
+  return (subband & 1) == 0 ? 1U : 0U;
+}
+}
+
+
 extern const char _binary_Correlator_Kernels_Transpose_cu_start, _binary_Correlator_Kernels_Transpose_cu_end;
 
 DeviceInstance::DeviceInstance(CorrelatorPipeline &pipeline, unsigned deviceNr)
@@ -166,9 +174,9 @@ void DeviceInstance::doSubband(const TimeStamp &time,
   {
     std::lock_guard<std::mutex> lock(enqueueMutex);
 
-    filter.launchAsync(executeStream,
-		         devCorrectedData,
-			 cu::DeviceMemory(hostInputBuffer));
+    // filter.launchAsync(executeStream,
+    //     	         devCorrectedData,
+    //     		 cu::DeviceMemory(hostInputBuffer));
 
     cu::DeviceMemory devVisibilities(hostVisibilities);
     cu::DeviceMemory devCorrectedDataChannel0skipped(static_cast<CUdeviceptr>(devCorrectedData) + ps.nrSamplesPerChannel() * ps.nrStations() * ps.nrPolarizations() * ps.nrBytesPerComplexSample());
@@ -220,7 +228,7 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
 
     filters[filterIndexForSubband(subband)]->launchAsync(executeStream,
                                                          devCorrectedData,
-                                                         devTransposedInputBuffer,
+                                                         devInputBuffer,
                                                          pipeline.filterAndCorrectCounter,
                                                          devFractionalDelays,
                                                          subbandCenterFrequency);
@@ -261,8 +269,7 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
 void DeviceInstance::doSubband(const TimeStamp &time,
 			       unsigned subband,
 			       const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
-			       const MultiArrayHostBuffer<float, 3> &hostDelaysAtBegin,
-			       const MultiArrayHostBuffer<float, 3> &hostDelaysAfterEnd,
+			       const MultiArrayHostBuffer<float, 2> &hostDelays,
 			       MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities
 			      )
 {
@@ -271,5 +278,5 @@ void DeviceInstance::doSubband(const TimeStamp &time,
     stream.memcpyHtoDAsync(devInputBuffer, hostInputBuffer, hostInputBuffer.bytesize());
   };
 
-  doSubband(time, subband, enqueueHostToDeviceTransfer, hostInputBuffer, hostDelaysAtBegin, hostDelaysAfterEnd, hostVisibilities);
+  doSubband(time, subband, enqueueHostToDeviceTransfer, hostInputBuffer, hostDelays, hostVisibilities);
 }

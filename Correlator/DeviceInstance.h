@@ -3,7 +3,7 @@
 
 #include "Common/Affinity.h"
 #include "Common/CUDA_Support.h"
-#include "libfilter/Filter.h"
+#include "Correlator/Filter.h"
 #include "Correlator/TCC.h"
 
 #include <functional>
@@ -26,7 +26,7 @@ class DeviceInstance
 		   unsigned subband,
 		   std::function<void (cu::Stream &, cu::DeviceMemory &devInputBuffer, PerformanceCounter &)> &enqueueHostToDeviceTransfer,
 		   const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
-		   const MultiArrayHostBuffer<float, 2> &hostDelay,
+		   const MultiArrayHostBuffer<float, 2> &hostDelays,
 		   MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities,
 		   unsigned startIndex = 0
 		  );

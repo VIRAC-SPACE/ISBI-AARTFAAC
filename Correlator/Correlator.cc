@@ -32,8 +32,7 @@ int main(int argc, char **argv)
     CorrelatorPipeline pipeline(ps);
 
     MultiArrayHostBuffer<char, 4> hostInputBuffer(boost::extents[ps.nrStations()][ps.nrPolarizations()][(ps.nrSamplesPerChannel() + NR_TAPS - 1) * ps.nrChannelsPerSubbandBeforeFilter()][ps.nrBytesPerRealSample()]);
-    MultiArrayHostBuffer<float, 3> hostDelaysAtBegin(boost::extents[ps.nrBeams()][ps.nrStations()][ps.nrPolarizations()]);
-    MultiArrayHostBuffer<float, 3> hostDelaysAfterEnd(boost::extents[ps.nrBeams()][ps.nrStations()][ps.nrPolarizations()]);
+    MultiArrayHostBuffer<float, 2> hostDelays(boost::extents[ps.nrStations()][2]);
     //MultiArrayHostBuffer<float, 2> hostPhaseOffsets(boost::extents[ps.nrBeams()][ps.nrPolarizations()]);
     MultiArrayHostBuffer<std::complex<int32_t>, 4> hostVisibilities(boost::extents[ps.nrOutputChannelsPerSubband()][ps.nrBaselines()][ps.nrPolarizations()][ps.nrPolarizations()]);
 
@@ -59,13 +58,12 @@ int main(int argc, char **argv)
 	std::cout << "time = " << currentTime << ", late = " << (double) (TimeStamp::now(ps.clockSpeed()) - currentTime) / ps.subbandBandwidth() << "s, exec = " << omp_get_wtime() - lastTime << std::endl;
 	lastTime = omp_get_wtime();
 
-	memset(hostDelaysAtBegin.origin(), 0, hostDelaysAtBegin.bytesize());
-	memset(hostDelaysAfterEnd.origin(), 0, hostDelaysAfterEnd.bytesize());
+	memset(hostDelays.origin(), 0, hostDelays.bytesize());
 	//memset(hostPhaseOffsets.origin(), 0, hostPhaseOffsets.bytesize());
 
 #pragma omp for schedule(dynamic), nowait, ordered
 	for (unsigned subband = 0; subband < ps.nrSubbands(); subband ++)
-	  pipeline.deviceInstances[deviceNr]->doSubband(currentTime, subband, hostInputBuffer, hostDelaysAtBegin, hostDelaysAfterEnd, hostVisibilities);
+	  pipeline.deviceInstances[deviceNr]->doSubband(currentTime, subband, hostInputBuffer, hostDelays, hostVisibilities);
       }
 
 #pragma omp barrier
