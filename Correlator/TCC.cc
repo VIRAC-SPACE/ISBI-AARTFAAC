@@ -32,5 +32,5 @@ TCC::TCC(const cu::Device &device, const CorrelatorParset &ps)
 void TCC::launchAsync(cu::Stream &stream, cu::DeviceMemory &devVisiblities, const cu::DeviceMemory &devCorrectedData, PerformanceCounter &counter)
 {
   PerformanceCounter::Measurement measurement(counter, stream, tcc.FLOPS(), 0, 0);
-  tcc.launchAsync(stream, devVisiblities, devCorrectedData, true);
+  tcc.launchAsync(stream, devVisiblities, devCorrectedData, false);
 }
