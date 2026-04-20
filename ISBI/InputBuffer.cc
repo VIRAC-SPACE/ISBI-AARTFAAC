@@ -143,12 +143,13 @@ InputBuffer::InputBuffer(const ISBI_Parset &ps, MultiArrayHostBuffer<char, 4> ho
   nrRingBufferSamplesPerSubband(ps.nrRingBufferSamplesPerSubband()),
   mappedChannels([&] {
     std::vector<uint32_t> channels(myNrSubbands * ps.nrPolarizations());
+    std::vector<uint32_t> channelMapping = {8, 12,  0,  4,  9, 13,  1,  5, 10, 14,  2,  6, 11, 15,  3,  7};
 
     for (unsigned subband = 0; subband < myNrSubbands; ++subband) {
       const unsigned subbandOffset = (myFirstSubband + subband) * ps.nrPolarizations();
 
       for (unsigned pol = 0; pol < ps.nrPolarizations(); ++pol) {
-        channels[subband * ps.nrPolarizations() + pol] = ps.channelMapping()[subbandOffset + pol];
+        channels[subband * ps.nrPolarizations() + pol] = channelMapping[subbandOffset + pol];
       }
     }
 

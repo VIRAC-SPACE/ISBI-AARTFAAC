@@ -12,7 +12,7 @@ CorrelatorWorkQueue::CorrelatorWorkQueue(ISBI_CorrelatorPipeline &pipeline, Devi
   pipeline(pipeline),
   deviceInstance(deviceInstance),
 
-  hostDelays(boost::extents[ps.nrBeams()][ps.nrStations()][ps.nrPolarizations()]),
+  hostDelays(boost::extents[ps.nrStations()][2]),
 
   validData(ps.inputDescriptors().size()) // FIXME???
 
@@ -22,7 +22,7 @@ CorrelatorWorkQueue::CorrelatorWorkQueue(ISBI_CorrelatorPipeline &pipeline, Devi
   bufferFull(0)
 #endif
 {
-
+  memset(hostDelays.origin(), 9, hostDelays.bytesize());
 }
 
 
@@ -74,14 +74,32 @@ void CorrelatorWorkQueue::doSubband(const TimeStamp &time, unsigned subband)
 
   if (hasValidData(validData) && inTime(time)) {
     std::unique_ptr<Visibilities> visibilities = pipeline.outputSection.getVisibilitiesBuffer(subband);
+    std::vector<int64_t> integerStationDelays(ps.nrStations, 0);
+
+    // TODO:
+    // if (pipeline.delayCorrection) {
+    std::vector<DelayCorrection::StationDelays> stationDelays = pipeline.delayCorrection.stationDelays(time);
+
+    if (stationDelays.size() != ps.nrStations()) {
+      throw std::runtime_error("unexpected amount of delays");
+    }
+
+    for (unsigned station = 0; station < ps.nrStations(); ++station) {
+      integerStationDelay[station] = stationDelays[station].integerSamples;
+      hostDelays[station][0] = stationDelays[station].d0;
+      hostDelays[station][1] = stationDelays[station].d1;
+    }
+
+    // } else set delays to 0
+    
     std::function<void (cu::Stream &, cu::DeviceMemory &, PerformanceCounter &)> enqueueCopyInputBuffer = [=] (cu::Stream &stream, cu::DeviceMemory &devInputBuffer, PerformanceCounter &counter)
     {
-      pipeline.inputSection.enqueueHostToDeviceCopy(stream, devInputBuffer, counter, time, subband);
+      pipeline.inputSection.enqueueHostToDeviceCopy(stream, devInputBuffer, counter, time, subband, integerStationDelays);
     };
 
     unsigned nrHistorySamples = (NR_TAPS - 1) * ps.nrChannelsPerSubbandBeforeFilter();
     unsigned startIndex = (time - nrHistorySamples) % ps.nrRingBufferSamplesPerSubband();
-    deviceInstance.doSubband(time, subband, enqueueCopyInputBuffer, pipeline.inputSection.hostRingBuffers[subband], hostDelays, hostDelays, visibilities->hostVisibilities, startIndex);
+    deviceInstance.doSubband(time, subband, enqueueCopyInputBuffer, pipeline.inputSection.hostRingBuffers[subband], hostDelays, visibilities->hostVisibilities, startIndex);
 
     visibilities->startTime = time;
     visibilities->endTime = time + ps.nrSamplesPerSubbandBeforeFilter();

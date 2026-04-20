@@ -26,8 +26,7 @@ class DeviceInstance
 		   unsigned subband,
 		   std::function<void (cu::Stream &, cu::DeviceMemory &devInputBuffer, PerformanceCounter &)> &enqueueHostToDeviceTransfer,
 		   const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
-		   const MultiArrayHostBuffer<float, 3> &hostDelaysAtBegin,
-		   const MultiArrayHostBuffer<float, 3> &hostDelaysAfterEnd,
+		   const MultiArrayHostBuffer<float, 2> &hostDelay,
 		   MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities,
 		   unsigned startIndex = 0
 		  );
@@ -35,8 +34,7 @@ class DeviceInstance
     void doSubband(const TimeStamp &,
 		   unsigned subband,
 		   const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
-		   const MultiArrayHostBuffer<float, 3> &hostDelaysAtBegin,
-		   const MultiArrayHostBuffer<float, 3> &hostDelaysAfterEnd,
+		   const MultiArrayHostBuffer<float, 2> &hostDelays,
 		   MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities
 		  );
 
@@ -55,12 +53,12 @@ class DeviceInstance
     cu::Stream			executeStream;
 
   protected:
-    std::future<tcc::Filter>		filterFuture, filterOddFuture; // compile asynchronously
+    std::array<std::future<std::unique_ptr<Filter>>, 2> filterFutures;
     std::future<TCC>		tccFuture; // compile asynchronously
     cu::DeviceMemory		devCorrectedData;
+    cu::DeviceMemory    devInputBuffer;
 
-    tcc::Filter			filter;
-    tcc::Filter			filterOdd;
+    std::array<std::unique_ptr<Filter>, 2> filters;
     TCC				tcc;
 
     std::mutex			enqueueMutex;
@@ -81,16 +79,13 @@ class DeviceInstanceWithoutUnifiedMemory : public DeviceInstance
 		   unsigned subband,
 		   std::function<void (cu::Stream &, cu::DeviceMemory &devInputBuffer, PerformanceCounter &)> &enqueueHostToDeviceTransfer,
 		   const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
-		   const MultiArrayHostBuffer<float, 3> &hostDelaysAtBegin,
-		   const MultiArrayHostBuffer<float, 3> &hostDelaysAfterEnd,
+		   const MultiArrayHostBuffer<float, 2> &hostDelays,
 		   MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities,
 		   unsigned startIndex = 0
 		  );
 
     cu::Stream			  hostToDeviceStream, deviceToHostStream;
-    cu::DeviceMemory              devInputBuffer;
-    cu::DeviceMemory              devFracDelays;
-    cu::DeviceMemory		  devDelaysAtBegin, devDelaysAfterEnd;
+    cu::DeviceMemory		  devDelays;
     std::vector<cu::DeviceMemory> devVisibilities;//[NR_DEV_VISIBILITIES_BUFFERS];
     unsigned			  currentVisibilityBuffer;
     cu::Event			  inputDataFree, visibilityDataFree[NR_DEV_VISIBILITIES_BUFFERS];

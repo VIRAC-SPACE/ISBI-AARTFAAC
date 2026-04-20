@@ -19,7 +19,7 @@ class InputSection
     ~InputSection();
     
     void fillInMissingSamples(const TimeStamp &, unsigned subband, std::vector<SparseSet<TimeStamp> > &validData);
-    void enqueueHostToDeviceCopy(cu::Stream &, cu::DeviceMemory &devBuffer, PerformanceCounter &, const TimeStamp &, unsigned subband);
+    void enqueueHostToDeviceCopy(cu::Stream &, cu::DeviceMemory &devBuffer, PerformanceCounter &, const TimeStamp &, unsigned subband, std::vector<int64_t> integerStationDelays);
 
     void startReadTransaction(const TimeStamp &);
     void endReadTransaction(const TimeStamp &);
