@@ -28,7 +28,7 @@ class Parset
 	virtual const char *what() const noexcept { return msg.c_str(); }
 
       private:
-	std::string msg;
+        std::string msg;
     };
 
     unsigned nrGPUs() const { return _GPUs.size(); }
@@ -45,9 +45,8 @@ class Parset
     unsigned nrChannelsPerSubband() const { return _nrChannelsPerSubband; } 
     unsigned nrChannelsPerSubbandBeforeFilter() const { return 2 * _nrChannelsPerSubband; } 
     unsigned nrBitsPerSample() const { return _nrBitsPerSample; }
-    unsigned nrBytesPerComplexSample() const { return 2 * _nrBitsPerSample / 8; }
-    // unsigned nrBytesPerRealSample() const { return _nrBitsPerSample / 8; }
-    unsigned nrBytesPerRealSample() const { return 1; }
+    unsigned nrBytesPerRealSample() const { return nrBitsPerSample() / 8; }
+    unsigned nrBytesPerComplexSample() const { return 2 * nrBytesPerRealSample(); }
     unsigned nrBeams() const { return _nrBeams; }
     unsigned nrSamplesPerChannel() const { return _nrSamplesPerChannel; }
     unsigned nrSamplesPerSubband() const { return nrSamplesPerChannel() * nrChannelsPerSubband(); }

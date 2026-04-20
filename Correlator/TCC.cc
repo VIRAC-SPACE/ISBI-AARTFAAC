@@ -20,24 +20,7 @@ TCC::TCC(const cu::Device &device, const CorrelatorParset &ps)
       ps.nrStations(),
       ps.nrOutputChannelsPerSubband(),
       ps.nrSamplesPerChannel() * ps.channelIntegrationFactor(),
-      ps.nrPolarizations(),
-      "typedef float2 Visibilities[" + std::to_string(ps.nrBaselines()) + "]["
-                                    + std::to_string(ps.nrOutputChannelsPerSubband()) + "]["
-                                    + std::to_string(ps.nrPolarizations()) + "]["
-                                    + std::to_string(ps.nrPolarizations()) + "];"
-      "template <bool add> __device__ inline void storeVisibility(Visibilities visibilities, "
-      "unsigned channel, unsigned recvY, unsigned recvX, unsigned polY, unsigned polX, Visibility visibility)"
-      "{"
-        "unsigned baseline = recvX * (recvX + 1) / 2 + recvY;"
-        "float2 value = make_float2(visibility.x, visibility.y);"
-        "if (add) {"
-          "visibilities[baseline][channel][polY][polX] = make_float2("
-            "visibilities[baseline][channel][polY][polX].x + value.x, "
-            "visibilities[baseline][channel][polY][polX].y + value.y);"
-        "} else {"
-          "visibilities[baseline][channel][polY][polX] = value;"
-        "}"
-      "}")
+      ps.nrPolarizations()
 {
   if (ps.nrPolarizations() != 2)
     throw Parset::Error("the Tensor-Core Correlator currently only supports 2 polarizations");

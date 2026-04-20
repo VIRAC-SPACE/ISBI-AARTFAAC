@@ -28,7 +28,7 @@ class DeviceInstance
 		   const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
 		   const MultiArrayHostBuffer<float, 3> &hostDelaysAtBegin,
 		   const MultiArrayHostBuffer<float, 3> &hostDelaysAfterEnd,
-		   MultiArrayHostBuffer<std::complex<float>, 3> &hostVisibilities,
+		   MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities,
 		   unsigned startIndex = 0
 		  );
 
@@ -37,7 +37,7 @@ class DeviceInstance
 		   const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
 		   const MultiArrayHostBuffer<float, 3> &hostDelaysAtBegin,
 		   const MultiArrayHostBuffer<float, 3> &hostDelaysAfterEnd,
-		   MultiArrayHostBuffer<std::complex<float>, 3> &hostVisibilities
+		   MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities
 		  );
 
     CorrelatorPipeline		&pipeline;
@@ -83,7 +83,7 @@ class DeviceInstanceWithoutUnifiedMemory : public DeviceInstance
 		   const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
 		   const MultiArrayHostBuffer<float, 3> &hostDelaysAtBegin,
 		   const MultiArrayHostBuffer<float, 3> &hostDelaysAfterEnd,
-		   MultiArrayHostBuffer<std::complex<float>, 3> &hostVisibilities,
+		   MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities,
 		   unsigned startIndex = 0
 		  );
 

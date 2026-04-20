@@ -299,7 +299,7 @@ DeviceInstanceWithoutUnifiedMemory::DeviceInstanceWithoutUnifiedMemory(Correlato
     deviceToHostStream.record(visibilityDataFree[buffer]);
 
   for (unsigned i = 0; i < NR_DEV_VISIBILITIES_BUFFERS; i ++)
-    devVisibilities.emplace_back(cu::DeviceMemory((size_t) ps.nrOutputChannelsPerSubband() * ps.nrBaselines() * ps.nrVisibilityPolarizations() * sizeof(std::complex<float>)));
+    devVisibilities.emplace_back(cu::DeviceMemory((size_t) ps.nrOutputChannelsPerSubband() * ps.nrBaselines() * ps.nrVisibilityPolarizations() * sizeof(std::complex<int32_t>)));
 }
 
 
@@ -334,7 +334,7 @@ void DeviceInstance::doSubband(const TimeStamp &time,
 			       const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
 			       const MultiArrayHostBuffer<float, 3> &hostDelaysAtBegin,
 			       const MultiArrayHostBuffer<float, 3> &hostDelaysAfterEnd,
-			       MultiArrayHostBuffer<std::complex<float>, 3> &hostVisibilities,
+			       MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities,
 			       unsigned startIndex
 			      )
 {
@@ -363,7 +363,7 @@ void DeviceInstanceWithoutUnifiedMemory::doSubband(const TimeStamp &time,
 				                   const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
 				                   const MultiArrayHostBuffer<float, 3> &hostDelaysAtBegin,
 				                   const MultiArrayHostBuffer<float, 3> &hostDelaysAfterEnd,
-				                   MultiArrayHostBuffer<std::complex<float>, 3> &hostVisibilities,
+				                   MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities,
 				                   unsigned startIndex) {
   context.setCurrent();
 
@@ -488,7 +488,7 @@ void DeviceInstance::doSubband(const TimeStamp &time,
 			       const MultiArrayHostBuffer<char, 4> &hostInputBuffer,
 			       const MultiArrayHostBuffer<float, 3> &hostDelaysAtBegin,
 			       const MultiArrayHostBuffer<float, 3> &hostDelaysAfterEnd,
-			       MultiArrayHostBuffer<std::complex<float>, 3> &hostVisibilities
+			       MultiArrayHostBuffer<std::complex<int32_t>, 4> &hostVisibilities
 			      )
 {
   std::function<void (cu::Stream &, cu::DeviceMemory &, PerformanceCounter &)> enqueueHostToDeviceTransfer = [&] (cu::Stream &stream, cu::DeviceMemory &devInputBuffer, PerformanceCounter &counter) {
