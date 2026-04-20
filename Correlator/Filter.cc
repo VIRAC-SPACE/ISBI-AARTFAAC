@@ -1,0 +1,54 @@
+#include "Correlator/Filter.h"
+
+Filter::Filter(const cu::Device &device, const CorrelatorParset &ps, bool mirror) :
+  ps(ps),
+  filter(device, tcc::FilterArgs {
+      .nrReceivers                  = ps.nrStations(),
+      .nrChannels                   = ps.nrChannelsPerSubband(),
+      .nrSamplesPerChannel          = ps.nrSamplesPerChannel(),
+      .nrPolarizations              = ps.nrPolarizations(),
+      .input                        = tcc::FilterArgs::Input {
+          .sampleFormat             = ps.nrBitsPerSample() == 8 ? tcc::FilterArgs::Format::i8 :
+                                      tcc::FilterArgs::Format::i16,
+          .isPurelyReal             = true,
+      }.
+      .firFilter                    = tcc::FilterArgs::FIR_Filter {
+          .nrTaps                   = NR_TAPS,
+          .sampleFormat             = tcc::FilterArgs::Format::fp32,
+      },
+      .fft                          = tcc::FilterArgs::FIR_Filter {
+          .sampleFormat             = tcc::FilterArgs::Format::fp32,
+          .shift                    = false,
+          .mirror                   = mirror,
+      },
+      .delays                       = ps.delayCompensation() ? std::optional<tcc::FilterArgs::Delays>(tcc::FilterArgs::Delays {
+          .subbandBandwidth         = ps.subbandBandwidth(),
+          .polynomialOrder          = 1,
+          .separatePerPolarization  = false,
+      }) : std::nullopt,
+      .bandpassCorrection           = std::nullopt,
+      .output                       = tcc::FilterArgs::Output {
+          .sampleFormat             = ps.nrBitsPerSample() == 8 ? tcc::FilterArgs::Format::i8 :
+                                      tcc::FilterArgs::Format::i16,
+      },
+  }) {
+
+    if (ps.nrBitsPerSample() != 8) {
+      throw Parset::Error("currently supports only 8-bit samples");
+    }
+}
+
+void Filter::launchAsync(cu::Stream &stream,
+                         cu::DeviceMemory &devOutSamples,
+                         const cu::DeviceMemory &devInSamples,
+                         PerformanceCounter &counter,
+                         const std::optional<const cu::DeviceMemory> &devDelays,
+                         const std::optional<double> subbandCenterFrequency) {
+  PerformanceCounter::Measurement measurement(counter, stream, filter.nrOperations(), 0, 0);
+
+  if (ps.delayCompensation()) {
+    filter.launchAsync(stream, devOutSamples, devInSamples, devDelays, subbandCenterFrequency);
+  } else {
+    filter.launchAsync(stream, devOutSamples, devInSamples);
+  }
+}
