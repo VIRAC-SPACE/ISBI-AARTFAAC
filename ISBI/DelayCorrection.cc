@@ -85,7 +85,7 @@ std::vector<DelayCorrection::StationDelay> DelayCorrection::stationDelays(const 
 
     if (station != referenceStation) {
       double delayAtStartRef = getDelayAt(time, referenceStation);
-      double delayAtEndRef = getDelayAt(time, referenceStation);
+      double delayAtEndRef = getDelayAt(endTime, referenceStation);
 
       delayAtStart -= delayAtStartRef;
       delayAtEnd -= delayAtEndRef;
