@@ -85,7 +85,8 @@ CORRELATOR_SOURCES=	$(COMMON_SOURCES)\
 			Correlator/Kernels/Transpose.cu\
 			Correlator/Kernels/TransposeKernel.cc\
 			Correlator/Parset.cc\
-			Correlator/TCC.cc
+			Correlator/TCC.cc\
+			Correlator/Filter.cc
 
 ISBI_SOURCES =		$(COMMON_SOURCES)\
                         ISBI/isbi.cc\
@@ -98,13 +99,15 @@ ISBI_SOURCES =		$(COMMON_SOURCES)\
                         ISBI/OutputSection.cc\
                         ISBI/Parset.cc\
                         ISBI/Visibilities.cc\
+												ISBI/DelayCorrection.cc\
                         Correlator/CorrelatorPipeline.cc\
                         Correlator/Parset.cc\
                         Correlator/DeviceInstance.cc\
                         Correlator/Kernels/Transpose.cu\
                         Correlator/Kernels/TransposeKernel.cc\
                         Correlator/Parset.cc\
-                        Correlator/TCC.cc
+                        Correlator/TCC.cc\
+												Correlator/Filter.cc
 
 
 ALL_SOURCES=		$(sort\

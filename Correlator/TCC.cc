@@ -16,7 +16,7 @@ namespace {
 TCC::TCC(const cu::Device &device, const CorrelatorParset &ps)
 :
   tcc(device,
-      bitsToFormat(ps.nrBitsPerSample()),
+      tcc::fp16,
       ps.nrStations(),
       ps.nrOutputChannelsPerSubband(),
       ps.nrSamplesPerChannel() * ps.channelIntegrationFactor(),

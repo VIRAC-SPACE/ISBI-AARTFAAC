@@ -21,8 +21,7 @@ Visibilities::Visibilities(const ISBI_Parset &ps, unsigned subband)
 
 Visibilities &Visibilities::operator += (const Visibilities &other)
 {
-#if 0
-//#if defined __AVX__
+#if defined __AVX__
   __m256 *dst = reinterpret_cast<__m256 *>(hostVisibilities.origin());
   const __m256 *src = reinterpret_cast<const __m256 *>(other.hostVisibilities.origin());
 
@@ -33,7 +32,7 @@ Visibilities &Visibilities::operator += (const Visibilities &other)
     for (unsigned baseline = 0; baseline < ps.nrBaselines(); baseline ++)
       for (unsigned pol0 = 0; pol0 < ps.nrPolarizations(); pol0++)
         for (unsigned pol1 = 0; pol1 < ps.nrPolarizations(); pol1++)
-          hostVisibilities[channel][baseline][pol0][pol1] = other.hostVisibilities[channel][baseline][pol0][pol1];
+          hostVisibilities[channel][baseline][pol0][pol1] += other.hostVisibilities[channel][baseline][pol0][pol1];
 #endif
 
   for (unsigned i = 0; i < sizeof(header.weights) / sizeof(header.weights[0]); i ++)

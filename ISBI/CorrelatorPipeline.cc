@@ -18,6 +18,7 @@ ISBI_CorrelatorPipeline::ISBI_CorrelatorPipeline(const ISBI_Parset &ps)
   CorrelatorPipeline(ps),
   ps(ps),
   nrWorkQueues(ps.nrQueuesPerGPU() * ps.nrGPUs()),
+  delayCorrection(ps),
   inputSection(ps),
   outputSection(ps),
   nextTime(ps.startTime())

@@ -3,8 +3,8 @@
 
 #include "ISBI/InputSection.h"
 #include "ISBI/OutputSection.h"
-//#include "ISBI/CorrelatorPipeline.h"
-#include "ISBI/Parset.h"
+#include "ISBI/DelayCorrection.h"
+
 #include <libfilter/FilterBank.h>
 #include "Common/PerformanceCounter.h"
 #include "Common/SlidingPointer.h"
@@ -32,6 +32,7 @@ class ISBI_CorrelatorPipeline : public CorrelatorPipeline
 
     const ISBI_Parset  &ps;
     const unsigned	   nrWorkQueues;
+    DelayCorrection delayCorrection;
     InputSection	   inputSection;
     OutputSection	   outputSection;
 

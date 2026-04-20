@@ -20,8 +20,10 @@ class ISBI_Parset : public CorrelatorParset
     unsigned nrRingBufferSamplesPerSubband() const { return _nrRingBufferSamplesPerSubband; }
 
     const int maxDelay() const { return _maxDelaySamples; }; 
+    const std::string delayFile() const { return _delayFile; }
     
     virtual std::vector<std::string> compileOptions() const;
+      std::string _delayFile;
 
   private:
     std::vector<std::string> _inputDescriptors, _outputDescriptors;
