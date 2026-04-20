@@ -35,7 +35,7 @@ int main(int argc, char **argv)
     MultiArrayHostBuffer<float, 3> hostDelaysAtBegin(boost::extents[ps.nrBeams()][ps.nrStations()][ps.nrPolarizations()]);
     MultiArrayHostBuffer<float, 3> hostDelaysAfterEnd(boost::extents[ps.nrBeams()][ps.nrStations()][ps.nrPolarizations()]);
     //MultiArrayHostBuffer<float, 2> hostPhaseOffsets(boost::extents[ps.nrBeams()][ps.nrPolarizations()]);
-    MultiArrayHostBuffer<std::complex<int32_t>, 4> hostVisibilities(boost::extents[ps.nrBaselines()][ps.nrOutputChannelsPerSubband()][ps.nrPolarizations()][ps.nrPolarizations()]);
+    MultiArrayHostBuffer<std::complex<int32_t>, 4> hostVisibilities(boost::extents[ps.nrOutputChannelsPerSubband()][ps.nrBaselines()][ps.nrPolarizations()][ps.nrPolarizations()]);
 
     double startTime = omp_get_wtime();
 

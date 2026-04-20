@@ -20,7 +20,7 @@ TCC::TCC(const cu::Device &device, const CorrelatorParset &ps)
       ps.nrStations(),
       ps.nrOutputChannelsPerSubband(),
       ps.nrSamplesPerChannel() * ps.channelIntegrationFactor(),
-      ps.nrPolarizations()
+      ps.nrPolarizations())
 {
   if (ps.nrPolarizations() != 2)
     throw Parset::Error("the Tensor-Core Correlator currently only supports 2 polarizations");
