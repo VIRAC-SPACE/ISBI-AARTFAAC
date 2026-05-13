@@ -96,7 +96,6 @@ inline TimeStamp &TimeStamp::setStamp(unsigned seqId, unsigned blockId)
 inline unsigned TimeStamp::getSeqId() const
 {
   return (unsigned) (time / clockSpeed);
-#endif
 }
 
 inline unsigned TimeStamp::getBlockId() const
