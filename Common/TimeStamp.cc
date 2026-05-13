@@ -47,5 +47,5 @@ void TimeStamp::wait() const
 
 std::ostream &operator << (std::ostream &os, const TimeStamp &ts)
 {
-  return os << ts.time;
+  return os << ts.getSeqId() << "s";
 }
