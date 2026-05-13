@@ -82,41 +82,26 @@ inline TimeStamp::TimeStamp(int64_t time, unsigned clockSpeed)
 
 inline TimeStamp::TimeStamp(unsigned seqId, unsigned blockId, unsigned clockSpeed)
 :
-#ifdef EVEN_SECOND_HAS_MORE_SAMPLES
-  time(((int64_t) seqId * clockSpeed + 512) / 1024 + blockId),
-#else
-  time(((int64_t) seqId * clockSpeed) / 1024 + blockId),
-#endif
+  time((int64_t) seqId * clockSpeed + blockId),
   clockSpeed(clockSpeed)
 {
 }
 
 inline TimeStamp &TimeStamp::setStamp(unsigned seqId, unsigned blockId)
 {
-#ifdef EVEN_SECOND_HAS_MORE_SAMPLES
-  time = ((int64_t) seqId * clockSpeed + 512) / 1024 + blockId;
-#else
-  time = ((int64_t) seqId * clockSpeed) / 1024 + blockId;
-#endif
+  time = (int64_t) seqId * clockSpeed + blockId;
   return *this;
 }
 
 inline unsigned TimeStamp::getSeqId() const
 {
-#ifdef EVEN_SECOND_HAS_MORE_SAMPLES
-  return (unsigned) (1024 * time / clockSpeed);
-#else
-  return (unsigned) ((1024 * time + 512) / clockSpeed);
+  return (unsigned) (time / clockSpeed);
 #endif
 }
 
 inline unsigned TimeStamp::getBlockId() const
 {
-#ifdef EVEN_SECOND_HAS_MORE_SAMPLES
-  return (unsigned) (1024 * time % clockSpeed / 1024);
-#else
-  return (unsigned) ((1024 * time + 512) % clockSpeed / 1024);
-#endif
+  return (unsigned) (time % clockSpeed);
 }
 
 template <typename T> inline TimeStamp &TimeStamp::operator += (T increment)
@@ -184,16 +169,15 @@ inline TimeStamp::operator int64_t () const
 
 inline TimeStamp::operator double () const
 {
-  return (double) 1024.0 * time / clockSpeed;
+  return (double) time / clockSpeed;
 }
 
 inline TimeStamp::operator struct timespec () const
 {
-  int64_t	  ns = (int64_t) (time * 1024 * 1e9 / clockSpeed);
   struct timespec ts;
 
-  ts.tv_sec  = ns / 1000000000ULL;
-  ts.tv_nsec = ns % 1000000000ULL;
+  ts.tv_sec  = time / clockSpeed;
+  ts.tv_nsec = (long) ((time % clockSpeed) * 1000000000LL / clockSpeed);
 
   return ts;
 }
