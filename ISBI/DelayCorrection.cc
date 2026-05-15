@@ -39,6 +39,8 @@ std::vector<std::map<int64_t, double>> DelayCorrection::readDelayFile() const {
 DelayCorrection::DelayCorrection(const ISBI_Parset &ps) :
   ps(ps),
   rawDelays(readDelayFile()),
+  previousIntegerDelay(ps.nrStations(), 0),
+  hasPreviousIntegerDelay(ps.nrStations(), false),
   referenceStation(0) {}
 
 double DelayCorrection::getDelayAt(const int64_t &timestamp, unsigned station) const {
