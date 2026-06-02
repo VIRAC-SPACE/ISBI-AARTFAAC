@@ -39,8 +39,6 @@ std::vector<std::map<int64_t, double>> DelayCorrection::readDelayFile() const {
 DelayCorrection::DelayCorrection(const ISBI_Parset &ps) :
   ps(ps),
   rawDelays(readDelayFile()),
-  previousIntegerDelay(ps.nrStations(), 0),
-  hasPreviousIntegerDelay(ps.nrStations(), false),
   referenceStation(0) {}
 
 double DelayCorrection::getDelayAt(const int64_t &timestamp, unsigned station) const {
@@ -98,28 +96,8 @@ std::vector<DelayCorrection::StationDelay> DelayCorrection::stationDelays(const 
 
     double delaySamplesAtStart = delayAtStart * Fs;
 
-    int64_t integerDelay;
-
-    if (!hasPreviousIntegerDelay[station]) {
-      integerDelay = static_cast<int64_t>(std::round(delaySamplesAtStart));
-      hasPreviousIntegerDelay[station] = true;
-    } else {
-      integerDelay = previousIntegerDelay[station];
-    }
-
-    double fractionalDelay = delaySamplesAtStart - (double)integerDelay;
-
-    constexpr double hysteresis = 0.99;
-
-    if (fractionalDelay > hysteresis) {
-      ++integerDelay;
-      fractionalDelay -= 1.0;
-    } else if (fractionalDelay < -hysteresis) {
-      --integerDelay;
-      fractionalDelay += 1.0;
-    }
-
-    previousIntegerDelay[station] = integerDelay;
+    int64_t integerDelay = static_cast<int64_t>(std::floor(delaySamplesAtStart));
+    double fractionalDelay = delaySamplesAtStart - static_cast<double>(integerDelay);
 
     double d0 = fractionalDelay / Fs;
     double d1 = (delayAtEnd - delayAtStart) / N;
