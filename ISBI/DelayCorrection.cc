@@ -79,6 +79,10 @@ std::vector<DelayCorrection::StationDelay> DelayCorrection::stationDelays(const 
   double Fs = (double)ps.sampleRate();
   double N = (double)ps.nrSamplesPerChannel();
 
+  if (!integerDelaysInitialized) {
+    fixedIntegerDelays.resize(ps.nrStations());
+  }
+
   for (unsigned station = 0; station < ps.nrStations(); ++station) {
     double delayAtStart = getDelayAt(time, station);
     double delayAtEnd = getDelayAt(endTime, station);
@@ -96,7 +100,11 @@ std::vector<DelayCorrection::StationDelay> DelayCorrection::stationDelays(const 
 
     double delaySamplesAtStart = delayAtStart * Fs;
 
-    int64_t integerDelay = static_cast<int64_t>(std::floor(delaySamplesAtStart));
+    if (!integerDelaysInitialized) {
+      fixedIntegerDelays[station] = static_cast<int64_t>(std::floor(delaySamplesAtStart));
+    }
+
+    int64_t integerDelay = fixedIntegerDelays[station];
     double fractionalDelay = delaySamplesAtStart - static_cast<double>(integerDelay);
 
     double d0 = fractionalDelay / Fs;
@@ -106,6 +114,8 @@ std::vector<DelayCorrection::StationDelay> DelayCorrection::stationDelays(const 
     result[station].d0 = -static_cast<float>(d0);
     result[station].d1 = -static_cast<float>(d1);
   }
+
+  integerDelaysInitialized = true;
 
   return result;
 }

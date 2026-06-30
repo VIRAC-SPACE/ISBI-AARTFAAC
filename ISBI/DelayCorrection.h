@@ -26,6 +26,9 @@ class DelayCorrection {
 
     std::vector<std::map<int64_t, double>> rawDelays;
 
+    mutable std::vector<int64_t> fixedIntegerDelays;
+    mutable bool integerDelaysInitialized = false;
+
     std::vector<std::map<int64_t, double>> readDelayFile() const;
 
     double getDelayAt(const int64_t &, unsigned station) const;
