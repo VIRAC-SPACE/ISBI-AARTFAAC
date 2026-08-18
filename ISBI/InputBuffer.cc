@@ -14,6 +14,7 @@
 #endif
 
 #include <cassert>
+#include <memory>
 #include <algorithm>
 #include <chrono>
 #include <vector>
@@ -282,13 +283,21 @@ void InputBuffer::inputThreadBody() {
 
   TimeStamp seekTime = ps.startTime() - nrHistorySamples - ps.maxDelay();
 
-  VDIFStream vdifStream(ps.inputDescriptors()[myFirstStation], ps.sampleRate(), seekTime);
-  assert(&vdifStream != nullptr);
+  // In real-time mode the frames arrive over UDP, otherwise they are read from
+  // a recording that is seeked to the start of the observation.
+  std::unique_ptr<VDIFStream> vdifStream = createVDIFStream(ps.inputDescriptors()[myFirstStation], ps.sampleRate(), seekTime, ps.realTime());
 
 #pragma omp critical (clog)
-  std::clog << "Station " << myFirstStation << " first VDIF timestamp: "
-          << vdifStream.getFirstTimestamp() << " samples"
-          << " vs ps.startTime()=" << ps.startTime() << std::endl;
+  {
+    std::clog << "Station " << myFirstStation << ' ' << (ps.realTime() ? "real-time" : "file") << " input " << ps.inputDescriptors()[myFirstStation] << ", first VDIF timestamp: ";
+
+    if (vdifStream->haveFirstHeader())
+      std::clog << vdifStream->getFirstTimestamp() << " samples";
+    else
+      std::clog << "not known yet, no frame received";
+
+    std::clog << " vs ps.startTime()=" << ps.startTime() << std::endl;
+  }
 
   std::array<std::array<char, maxPacketSize>, maxNrPacketsInBuffer> packetBuffer;
 
@@ -312,7 +321,8 @@ void InputBuffer::inputThreadBody() {
     //#if defined USE_RECVMMSG  
     try {
       for (nrPackets = 0; nrPackets < maxNrPacketsInBuffer; nrPackets ++) {
-        vdifStream.read(packetBuffer[nrPackets].data());
+        if (!vdifStream->read(packetBuffer[nrPackets].data()))
+          break; // real-time input is idle; handle the packets received so far
       }
     }
     catch (Stream::EndOfStreamException) {

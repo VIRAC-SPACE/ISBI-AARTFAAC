@@ -1,14 +1,18 @@
 #ifndef RADIOBLOCKS_VDIFSTREAM_H
 #define RADIOBLOCKS_VDIFSTREAM_H
 
-#include "Common/Stream/FileStream.h"
+#include "Common/Stream/Stream.h"
 #include "Common/TimeStamp.h"
 
-#include <fstream>
 #include <array>
 #include <complex>
-#include <vector>
+#include <cstdint>
 #include <ctime>
+#include <fstream>
+#include <memory>
+#include <ostream>
+#include <string>
+#include <vector>
 
 static constexpr int8_t DECODER_LEVEL_2BIT[] = { -3, -1, 1, 3 };
 static constexpr uint32_t maxPacketSize = 8032;
@@ -40,6 +44,7 @@ struct VDIFHeader {
 
   
   int64_t timestamp(double sample_rate) const;
+  uint32_t frameSize() const;
   uint32_t dataSize() const;
   uint32_t headerSize() const;
   uint32_t samplesPerFrame() const;
@@ -70,43 +75,63 @@ struct VDIFHeader {
 
 };
 
+// Common interface for the offline (file) and real-time (UDP) VDIF sources.
+// The first valid frame that is seen defines the frame layout; frames that do
+// not match it are dropped by the derived streams.
 class VDIFStream : public Stream {
-  private:
-    std::ifstream file;
-    std::vector<char> ioBuffer;
-
-    VDIFHeader firstHeader, currentHeader;
-
-    bool firstHeaderFound;
-
-    uint32_t invalidFrames;
-    uint32_t numberOfFrames;
-
-    double sampleRate;
-    uint32_t dataSize;
-    uint32_t headerSize;
-
-    bool readFirstHeader();
-    void findNextValidHeader();
-    HeaderStatus checkHeader();
-
-    void atTimestamp(const TimeStamp &ts);
-    bool readHeaderAtFrame(uint64_t frameIndex, VDIFHeader &hdr);
   public:
-    VDIFStream(std::string inputFile, double sampleRate, TimeStamp startTime);
+    virtual ~VDIFStream();
 
-    void read(char* frame);
+    // Reads one complete VDIF frame into frame, which must have room for
+    // maxPacketSize bytes. Returns false when no frame was available before the
+    // read timed out (only happens on real-time input); throws
+    // EndOfStreamException when no further frames will ever arrive.
+    virtual bool read(char *frame) = 0;
 
     // NOT USED, they come from Stream class.
     size_t tryWrite(const void *ptr, size_t size) { return 0; }
     size_t tryRead(void *ptr, size_t size) { return 0; }
 
-    int64_t getFirstTimestamp() const;
-    ~VDIFStream();
+    bool     haveFirstHeader() const { return firstHeaderFound; }
+    int64_t  getFirstTimestamp() const;
+    const VDIFHeader &getFirstHeader() const { return firstHeader; }
+    const VDIFHeader &getCurrentHeader() const { return currentHeader; }
+    uint64_t getNumberOfFrames() const { return numberOfFrames; }
+    uint64_t getInvalidFrames() const { return invalidFrames; }
+
+  protected:
+    VDIFStream(double sampleRate);
+
+    static HeaderStatus checkHeader(const VDIFHeader &header);
+
+    // Records the layout that all following frames must have.
+    void setFirstHeader(const VDIFHeader &header);
+    bool matchesFirstHeader(const VDIFHeader &header) const;
+
+    VDIFHeader firstHeader, currentHeader;
+
+    bool firstHeaderFound;
+
+    uint64_t invalidFrames;
+    uint64_t numberOfFrames;
+
+    double sampleRate;
+    uint32_t dataSize;
+    uint32_t headerSize;
 };
+
+// Creates the stream that matches the run mode: a UDP receiver in real-time
+// mode, a file reader otherwise. The descriptor is a filename for file input
+// and [udp:][address:]port for real-time input; startTime is only used to seek
+// in a file.
+std::unique_ptr<VDIFStream> createVDIFStream(const std::string &descriptor, double sampleRate, const TimeStamp &startTime, bool realTime);
 
 inline uint32_t VDIFHeader::headerSize() const {
   return 16 + 16 * (1 - legacy_mode);
+}
+
+inline uint32_t VDIFHeader::frameSize() const {
+  return 8 * dataframe_length;
 }
 
 inline uint32_t VDIFHeader::dataSize() const {
@@ -122,21 +147,29 @@ inline uint32_t VDIFHeader::samplesPerFrame() const {
   return dataSize() * 8 / bps / numberOfChannels();
 }
 
-inline HeaderStatus VDIFStream::checkHeader() {
-  if (((uint32_t *)&currentHeader)[0] == 0x11223344 ||
-      ((uint32_t *)&currentHeader)[1] == 0x11223344 ||
-      ((uint32_t *)&currentHeader)[2] == 0x11223344 ||
-      ((uint32_t *)&currentHeader)[3] == 0x11223344) {
+inline HeaderStatus VDIFStream::checkHeader(const VDIFHeader &header) {
+  const uint32_t *words = reinterpret_cast<const uint32_t *>(&header);
+
+  if (words[0] == 0x11223344 ||
+      words[1] == 0x11223344 ||
+      words[2] == 0x11223344 ||
+      words[3] == 0x11223344) {
     return HeaderStatus::INVALID;
-  } else if (currentHeader.ref_epoch == 0  && currentHeader.sec_from_epoch == 0) {
+  } else if (header.ref_epoch == 0 && header.sec_from_epoch == 0) {
+    return HeaderStatus::INVALID;
+  } else if (header.frameSize() <= header.headerSize() || header.frameSize() > maxPacketSize) {
     return HeaderStatus::INVALID;
   }
 
   return HeaderStatus::VALID;
 }
 
+inline bool VDIFStream::matchesFirstHeader(const VDIFHeader &header) const {
+  return firstHeaderFound && header.headerSize() == headerSize && header.dataSize() == dataSize;
+}
+
 inline int64_t VDIFStream::getFirstTimestamp() const {
-  return firstHeader.timestamp(sampleRate);
+  return firstHeaderFound ? firstHeader.timestamp(sampleRate) : 0;
 }
 
 #endif //RADIOBLOCKS_VDIFSTREAM_H

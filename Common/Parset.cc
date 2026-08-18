@@ -183,7 +183,7 @@ Parset::Parset(int argc, char **argv, bool throwExceptionOnUnmatchedParameter)
     ("nrPolarizations", value<unsigned>(&_nrPolarizations)->default_value(2))
     ("nrQueuesPerGPU,q", value<unsigned>(&_nrQueuesPerGPU)->default_value(2))
     ("runTime,r", value<unsigned>(&runTime)->default_value(20))
-    ("realTime,R", value<bool>(&_realTime)->default_value(true))
+    ("realTime,R", value<bool>(&_realTime)->default_value(false)) // real-time mode reads VDIF frames from UDP, otherwise from files
     ("nrSubbands,s", value<unsigned>(&_nrSubbands)->default_value(16))
     ("subbandNumbers,S", value<std::string>()->notifier([this] (const std::string &arg) { _subbandNumbers = splitArgs<unsigned>(arg); } ))
     ("nrSamplesPerChannel,t", value<unsigned>(&_nrSamplesPerChannel)->default_value(3072))

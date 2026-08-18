@@ -30,6 +30,7 @@ void printSettings(const ISBI_Parset &ps){
   std::clog << "#samples/channel = " << ps.nrSamplesPerChannel() << std::endl;
   std::clog << "#bits/sample = " << ps.nrBitsPerSample() << std::endl;
   std::clog << "correlator mode = " << ps.correlationMode() << std::endl;
+  std::clog << "real time = " << ps.realTime() << " (input from " << (ps.realTime() ? "UDP" : "files") << ")" << std::endl;
   std::clog << "start time = " << ps.startTime() << std::endl;
   std::clog << "intended stop time = " << ps.stopTime() << std::endl;
   std::clog << "sample rate = " << ps.sampleRate() << std::endl;

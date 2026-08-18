@@ -123,6 +123,8 @@ CORRELATOR_DEVICE_INSTANCE_TEST_SOURCES=\
 ISBI_SOURCES =          $(COMMON_SOURCES)\
                         ISBI/isbi.cc\
                         ISBI/VDIFStream.cc\
+                        ISBI/VDIFFileStream.cc\
+                        ISBI/VDIFSocketStream.cc\
                         ISBI/InputBuffer.cc\
                         ISBI/InputSection.cc\
 			ISBI/Parset.cc\

@@ -91,6 +91,8 @@ CORRELATOR_SOURCES=	$(COMMON_SOURCES)\
 ISBI_SOURCES =		$(COMMON_SOURCES)\
                         ISBI/isbi.cc\
 			ISBI/VDIFStream.cc\
+			ISBI/VDIFFileStream.cc\
+			ISBI/VDIFSocketStream.cc\
                         ISBI/CorrelatorPipeline.cc\
                         ISBI/CorrelatorWorkQueue.cc\
                         ISBI/InputBuffer.cc\
