@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <cstdint>
+#include <cmath>
 
 std::vector<std::map<int64_t, double>> DelayCorrection::readDelayFile() const {
   std::ifstream delayFile(ps.delayFile(), std::ios::binary);
@@ -79,10 +80,6 @@ std::vector<DelayCorrection::StationDelay> DelayCorrection::stationDelays(const 
   double Fs = (double)ps.sampleRate();
   double N = (double)ps.nrSamplesPerChannel();
 
-  if (!integerDelaysInitialized) {
-    fixedIntegerDelays.resize(ps.nrStations());
-  }
-
   for (unsigned station = 0; station < ps.nrStations(); ++station) {
     double delayAtStart = getDelayAt(time, station);
     double delayAtEnd = getDelayAt(endTime, station);
@@ -100,11 +97,12 @@ std::vector<DelayCorrection::StationDelay> DelayCorrection::stationDelays(const 
 
     double delaySamplesAtStart = delayAtStart * Fs;
 
-    if (!integerDelaysInitialized) {
-      fixedIntegerDelays[station] = static_cast<int64_t>(std::floor(delaySamplesAtStart));
-    }
-
-    int64_t integerDelay = fixedIntegerDelays[station];
+    // Integer part per block, so the fractional remainder handed to the filter
+    // kernel stays within +-0.5 sample. The integer part may change between
+    // blocks: the sky-frequency phase that a sample shift does not supply is
+    // restored after correlation (CorrelatorWorkQueue::correctIntegerDelayPhase),
+    // so there is no phase jump when it does.
+    int64_t integerDelay = static_cast<int64_t>(std::llround(delaySamplesAtStart));
     double fractionalDelay = delaySamplesAtStart - static_cast<double>(integerDelay);
 
     double d0 = fractionalDelay / Fs;
@@ -114,8 +112,6 @@ std::vector<DelayCorrection::StationDelay> DelayCorrection::stationDelays(const 
     result[station].d0 = -static_cast<float>(d0);
     result[station].d1 = -static_cast<float>(d1);
   }
-
-  integerDelaysInitialized = true;
 
   return result;
 }

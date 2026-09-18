@@ -4,6 +4,7 @@
 #include "ISBI/VDIFStream.h"
 #include "Common/Stream/SocketStream.h"
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -22,6 +23,7 @@ class VDIFSocketStream : public VDIFStream {
     ~VDIFSocketStream();
 
     bool read(char *frame);
+    unsigned readMany(std::array<char, maxPacketSize> *frames, unsigned maxFrames);
 
     uint64_t getMalformedFrames() const { return malformedFrames; }
     uint64_t getGapsOrReorders() const { return gapsOrReorders; }
@@ -32,6 +34,10 @@ class VDIFSocketStream : public VDIFStream {
     void setReceiveTimeout(double seconds);
     int  setReceiveBufferSize(int size);
     void updateContinuity(const VDIFHeader &header);
+
+    // Shared validation/accounting for one received datagram; returns false if
+    // the frame must be dropped.
+    bool acceptFrame(const char *frame, ssize_t received);
 
     std::unique_ptr<SocketStream> socket;
     std::string descriptor;

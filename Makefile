@@ -133,7 +133,7 @@ LIBRARIES+=		-L${FFTW_LIB} -lfftw3f
 LIBRARIES+=		-L${FILTER_LIB} -Wl,-rpath=$(FILTER_LIB) -lfilter
 LIBRARIES+=		-L${TCC_LIB} -Wl,-rpath=$(TCC_LIB) -ltcc
 LIBRARIES+=		-L${NVRTC_LIB} -Wl,-rpath=$(NVRTC_LIB) -lnvrtc
-LIBRARIES+=             -L/var/software/spack-builtin/20250403/opt/spack/linux-rocky8-zen2/gcc-12.2.0/cuda-12.6.2-v5h46v5wx6zglkfx3zrq2oq6tk73bnbx/targets/x86_64-linux/lib/stubs -Wl,-rpath=/var/software/spack-builtin/20250403/opt/spack/linux-rocky8-zen2/gcc-12.2.0/cuda-12.6.2-v5h46v5wx6zglkfx3zrq2oq6tk73bnbx/targets/x86_64-linux/lib/stubs -lcuda
+LIBRARIES+=		-L${CUDA_LIB} -Wl,-rpath=$(CUDA_LIB) -lcuda
 LIBRARIES+=		-lnuma
 
 ifneq ("$(POWER_SENSOR3_LIB)", "")

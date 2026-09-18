@@ -320,10 +320,10 @@ void InputBuffer::inputThreadBody() {
   do {
     //#if defined USE_RECVMMSG  
     try {
-      for (nrPackets = 0; nrPackets < maxNrPacketsInBuffer; nrPackets ++) {
-        if (!vdifStream->read(packetBuffer[nrPackets].data()))
-          break; // real-time input is idle; handle the packets received so far
-      }
+      // One batched call: for UDP this is a single recvmmsg(), so the socket
+      // is drained far faster than with one recv() per frame. Returns 0 when
+      // the real-time input is idle; handle whatever was received so far.
+      nrPackets = vdifStream->readMany(packetBuffer.data(), maxNrPacketsInBuffer);
     }
     catch (Stream::EndOfStreamException) {
 #pragma omp critical (clog)
@@ -420,7 +420,17 @@ void InputBuffer::noInputThreadBody()
     bool lateLastTime = false;
 
     for (TimeStamp timeStamp = ps.startTime(); timeStamp < ps.stopTime() + ps.nrSamplesPerSubbandBeforeFilter() * ps.visibilitiesIntegration() && !stop && !signalCaught; timeStamp += ps.subbandBandwidth() / 10) {
-      wallClock.waitUntil(timeStamp + ps.subbandBandwidth() / 3);
+      // Wait well past timeStamp before deciding that no data will arrive.
+      // This used to be subbandBandwidth()/3 (0.333 s), which is far tighter
+      // than the jitter of the input thread at full rate. Overshooting it is
+      // not a benign miss: forcing sets latestWriteTime = timeStamp, and
+      // handleConsecutivePackets() only writes when beginTime >=
+      // latestWriteTime, so every subsequent real batch is silently discarded
+      // and the stream never recovers ("forcing ..." with no matching
+      // "resumed normal operation"). The tolerance must therefore exceed
+      // normal input jitter; it stays well inside the ring buffer, which
+      // holds nrRingBufferSamplesPerSubband (~4 s by default).
+      wallClock.waitUntil(timeStamp + 2 * ps.subbandBandwidth());
 
       std::lock_guard<std::mutex> lock(latestWriteTimeMutex);
 

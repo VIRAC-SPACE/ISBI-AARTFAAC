@@ -27,6 +27,18 @@ VDIFStream::~VDIFStream()
 }
 
 
+unsigned VDIFStream::readMany(std::array<char, maxPacketSize> *frames, unsigned maxFrames)
+{
+  unsigned n = 0;
+
+  for (; n < maxFrames; n ++)
+    if (!read(frames[n].data()))
+      break;
+
+  return n;
+}
+
+
 void VDIFStream::setFirstHeader(const VDIFHeader &header)
 {
   firstHeader = header;

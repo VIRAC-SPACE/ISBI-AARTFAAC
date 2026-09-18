@@ -88,6 +88,12 @@ class VDIFStream : public Stream {
     // EndOfStreamException when no further frames will ever arrive.
     virtual bool read(char *frame) = 0;
 
+    // Reads up to maxFrames complete frames into frames[0..return). The
+    // default implementation just loops read(); VDIFSocketStream overrides it
+    // with a single recvmmsg() so that a batch costs one syscall instead of
+    // one per frame, which keeps the socket draining faster.
+    virtual unsigned readMany(std::array<char, maxPacketSize> *frames, unsigned maxFrames);
+
     // NOT USED, they come from Stream class.
     size_t tryWrite(const void *ptr, size_t size) { return 0; }
     size_t tryRead(void *ptr, size_t size) { return 0; }

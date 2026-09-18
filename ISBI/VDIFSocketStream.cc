@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstring>
 #include <iostream>
+#include <vector>
 #include <stdexcept>
 
 VDIFSocketStream::VDIFSocketStream(const std::string &descriptor, double sampleRate, double readTimeout, int receiveBufferSize)
@@ -137,6 +138,43 @@ void VDIFSocketStream::updateContinuity(const VDIFHeader &header)
 }
 
 
+bool VDIFSocketStream::acceptFrame(const char *frame, ssize_t received)
+{
+  if (received < static_cast<ssize_t>(sizeof(VDIFHeader)) || received > static_cast<ssize_t>(maxPacketSize)) {
+    ++malformedFrames;
+    return false;
+  }
+
+  VDIFHeader header;
+  std::memcpy(&header, frame, sizeof header);
+
+  if (checkHeader(header) != HeaderStatus::VALID || header.frameSize() != static_cast<uint32_t>(received)) {
+    ++invalidFrames;
+    return false;
+  }
+
+  if (!firstHeaderFound) {
+    setFirstHeader(header);
+
+    std::cout << "VDIFSocketStream " << descriptor << ": first frame received" << std::endl
+              << header
+              << "samples/frame: " << header.samplesPerFrame() << std::endl;
+  } else if (!matchesFirstHeader(header)) {
+    // The ring buffer is filled assuming a constant number of samples per
+    // frame, so a frame of a different shape cannot be used.
+    ++malformedFrames;
+    return false;
+  }
+
+  currentHeader = header;
+  updateContinuity(header);
+
+  ++numberOfFrames;
+  receivedBytes += static_cast<uint64_t>(received);
+  return true;
+}
+
+
 bool VDIFSocketStream::read(char *frame)
 {
   for (;;) {
@@ -154,37 +192,66 @@ bool VDIFSocketStream::read(char *frame)
       throw SystemCallException("recv", errno);
     }
 
-    if (received < static_cast<ssize_t>(sizeof(VDIFHeader)) || received > static_cast<ssize_t>(maxPacketSize)) {
-      ++malformedFrames;
-      continue;
-    }
-
-    VDIFHeader header;
-    std::memcpy(&header, frame, sizeof header);
-
-    if (checkHeader(header) != HeaderStatus::VALID || header.frameSize() != static_cast<uint32_t>(received)) {
-      ++invalidFrames;
-      continue;
-    }
-
-    if (!firstHeaderFound) {
-      setFirstHeader(header);
-
-      std::cout << "VDIFSocketStream " << descriptor << ": first frame received" << std::endl
-                << header
-                << "samples/frame: " << header.samplesPerFrame() << std::endl;
-    } else if (!matchesFirstHeader(header)) {
-      // The ring buffer is filled assuming a constant number of samples per
-      // frame, so a frame of a different shape cannot be used.
-      ++malformedFrames;
-      continue;
-    }
-
-    currentHeader = header;
-    updateContinuity(header);
-
-    ++numberOfFrames;
-    receivedBytes += static_cast<uint64_t>(received);
-    return true;
+    if (acceptFrame(frame, received))
+      return true;
   }
+}
+
+
+// One recvmmsg() pulls a whole batch out of the socket, instead of one recv()
+// per frame. At the real-time rate the input thread is the only consumer of
+// the socket, so cutting ~64 syscalls per batch down to one materially reduces
+// the time the socket spends undrained.
+unsigned VDIFSocketStream::readMany(std::array<char, maxPacketSize> *frames, unsigned maxFrames)
+{
+  if (maxFrames == 0)
+    return 0;
+
+  std::vector<struct iovec>   iovecs(maxFrames);
+  std::vector<struct mmsghdr> msgs(maxFrames);
+
+  for (unsigned i = 0; i < maxFrames; i ++) {
+    iovecs[i].iov_base           = frames[i].data();
+    iovecs[i].iov_len            = maxPacketSize;
+    std::memset(&msgs[i], 0, sizeof msgs[i]);
+    msgs[i].msg_hdr.msg_iov      = &iovecs[i];
+    msgs[i].msg_hdr.msg_iovlen   = 1;
+  }
+
+  int received;
+
+  for (;;) {
+    // MSG_WAITFORONE returns as soon as at least one datagram is available, so
+    // a partly filled batch is not delayed until the SO_RCVTIMEO expires.
+    received = recvmmsg(socket->fd, msgs.data(), maxFrames, MSG_WAITFORONE | MSG_TRUNC, nullptr);
+
+    if (received >= 0)
+      break;
+
+    if (errno == EINTR)
+      continue;
+
+    if (errno == EAGAIN || errno == EWOULDBLOCK)
+      return 0; // no data for now; let the caller handle what it has
+
+    throw SystemCallException("recvmmsg", errno);
+  }
+
+  // Validate in place and compact the survivors to the front, so the caller
+  // still sees a contiguous run of good frames.
+  unsigned kept = 0;
+
+  for (int i = 0; i < received; i ++) {
+    const ssize_t len = static_cast<ssize_t>(msgs[i].msg_len);
+
+    if (!acceptFrame(frames[i].data(), len))
+      continue;
+
+    if (static_cast<unsigned>(i) != kept)
+      frames[kept] = frames[i];
+
+    kept ++;
+  }
+
+  return kept;
 }
