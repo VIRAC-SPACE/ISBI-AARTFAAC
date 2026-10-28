@@ -14,9 +14,9 @@
 #include <vector>
 #include <stdexcept>
 
-VDIFSocketStream::VDIFSocketStream(const std::string &descriptor, double sampleRate, double readTimeout, int receiveBufferSize)
+VDIFSocketStream::VDIFSocketStream(const std::string &descriptor, double sampleRate, unsigned decimation, double readTimeout, int receiveBufferSize)
 :
-  VDIFStream(sampleRate),
+  VDIFStream(sampleRate, decimation),
   descriptor(descriptor),
   malformedFrames(0),
   gapsOrReorders(0),

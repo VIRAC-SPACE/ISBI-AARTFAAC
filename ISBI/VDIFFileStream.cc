@@ -14,8 +14,8 @@ constexpr uint32_t HEADER_SIZE = 32; // bytes
 constexpr uint32_t DATA_SIZE = 8000; // bytes
 constexpr std::size_t READ_BUFFER_SIZE = 1u << 20;
 
-VDIFFileStream::VDIFFileStream(std::string inputFile, double sampleRate, TimeStamp startTime) 
-  : VDIFStream(sampleRate),
+VDIFFileStream::VDIFFileStream(std::string inputFile, double sampleRate, TimeStamp startTime, unsigned decimation) 
+  : VDIFStream(sampleRate, decimation),
     ioBuffer(READ_BUFFER_SIZE) { 
 
     file.rdbuf()->pubsetbuf(ioBuffer.data(), ioBuffer.size());
@@ -48,8 +48,8 @@ bool VDIFFileStream::readHeaderAtFrame(uint64_t frameIndex, VDIFHeader &hdr) {
 
 void VDIFFileStream::atTimestamp(const TimeStamp &ts) {
   const int64_t target = static_cast<int64_t>(ts);
-  const int64_t firstTs = firstHeader.timestamp(sampleRate);
-  const int64_t samplesPerFrame = firstHeader.samplesPerFrame();
+  const int64_t firstTs = frameTimestamp(firstHeader);
+  const int64_t samplesPerFrame = decimatedSamplesPerFrame(firstHeader);
 
   int64_t estimatedFrame = (target - firstTs) / samplesPerFrame;
   if (estimatedFrame < 0) {
@@ -70,8 +70,8 @@ void VDIFFileStream::atTimestamp(const TimeStamp &ts) {
       continue;
     }
 
-    const int64_t frameStart = header.timestamp(sampleRate);
-    const int64_t frameEnd = frameStart + header.samplesPerFrame();
+    const int64_t frameStart = frameTimestamp(header);
+    const int64_t frameEnd = frameStart + decimatedSamplesPerFrame(header);
 
     if (target < frameStart) {
       if (frame == 0) {

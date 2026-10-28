@@ -29,6 +29,7 @@ class CorrelatorWorkQueue
   private:
     bool hasValidData(std::vector<SparseSet<TimeStamp>> &);
     bool inTime(const TimeStamp &);
+    void zeroUnproducedBaselines(Visibilities *);
     void computeWeights(const std::vector<SparseSet<TimeStamp> > &validData, Visibilities *);
     void correctIntegerDelayPhase(unsigned subband, const std::vector<int64_t> &integerStationDelays, Visibilities *);
 

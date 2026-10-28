@@ -4,6 +4,7 @@
 #include "ISBI/CorrelatorWorkQueue.h"
 
 #include <iostream>
+#include <cstdlib>
 #include <cmath>
 #include <complex>
 
@@ -65,7 +66,34 @@ void CorrelatorWorkQueue::computeWeights(const std::vector<SparseSet<TimeStamp> 
 {
   for (unsigned stat2 = 0, pair = 0; stat2 < validData.size(); stat2 ++)
     for (unsigned stat1 = 0; stat1 <= stat2 && pair < sizeof(visibilities->header.weights) / sizeof(visibilities->header.weights[0]); stat1 ++, pair ++)
-      visibilities->header.weights[pair] = ((uint32_t) (int64_t) (validData[stat1] & validData[stat2]).count() / ps.nrChannelsPerSubbandBeforeFilter() - (NR_TAPS - 1)) * ps.channelIntegrationFactor();
+      visibilities->header.weights[pair] = ps.producesBaseline(stat1, stat2) ?
+        ((uint32_t) (int64_t) (validData[stat1] & validData[stat2]).count() / ps.nrChannelsPerSubbandBeforeFilter() - (NR_TAPS - 1)) * ps.channelIntegrationFactor() :
+        0;
+}
+
+
+// With --referenceStation, only baselines involving that station are produced.
+// The Tensor-Core Correlator has no notion of a baseline subset, so it still
+// computes them all -- the cost of that is negligible, since it scales with
+// nrStations^2 while the filter and the host-to-device copy, which dominate,
+// scale linearly. What this does buy is correctness of interpretation: once the
+// array is mixed-mode, only the reference station's grid is common to everyone,
+// so a pair that excludes it is not a meaningful correlation and must not be
+// mistaken for one. Zeroing the data AND the weight says "not computed" in a
+// way every existing reader already understands, because a zero weight is how a
+// fully flagged baseline has always been reported.
+void CorrelatorWorkQueue::zeroUnproducedBaselines(Visibilities *visibilities)
+{
+  if (ps.referenceStation() < 0)
+    return;
+
+  for (unsigned stat2 = 0, pair = 0; stat2 < ps.nrStations(); stat2 ++)
+    for (unsigned stat1 = 0; stat1 <= stat2; stat1 ++, pair ++)
+      if (!ps.producesBaseline(stat1, stat2))
+        for (unsigned channel = 0; channel < ps.nrOutputChannelsPerSubband(); channel ++)
+          for (unsigned pol0 = 0; pol0 < ps.nrPolarizations(); pol0 ++)
+            for (unsigned pol1 = 0; pol1 < ps.nrPolarizations(); pol1 ++)
+              visibilities->hostVisibilities[channel][pair][pol0][pol1] = 0.0f;
 }
 
 
@@ -144,6 +172,8 @@ void CorrelatorWorkQueue::doSubband(const TimeStamp &time, unsigned subband)
 
     if (ps.delayCompensation())
       correctIntegerDelayPhase(subband, integerStationDelays, visibilities.get());
+
+    zeroUnproducedBaselines(visibilities.get());
 
     visibilities->startTime = time;
     visibilities->endTime = time + ps.nrSamplesPerSubbandBeforeFilter();

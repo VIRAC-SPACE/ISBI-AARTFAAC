@@ -30,7 +30,7 @@ InputSection::InputSection(const ISBI_Parset &ps)
 
     for (unsigned stationSet = 0; stationSet < ps.inputDescriptors().size(); stationSet ++) {
       std::unique_ptr<BoundThread> bt(ps.inputBufferNodes().size() > 0 ? new BoundThread(ps.allowedCPUs(ps.inputBufferNodes()[stationSet])) : nullptr);
-      buffers.emplace_back(new InputBuffer(ps, &hostRingBuffers[0], 0, ps.nrSubbands(), stationSet, 1, nrTimesPerPacket));
+      buffers.emplace_back(new InputBuffer(ps, &hostRingBuffers[0], 0, ps.nrSubbands(), stationSet, 1, ps.samplesPerFrame(stationSet)));
     }
 
     return std::move(buffers);

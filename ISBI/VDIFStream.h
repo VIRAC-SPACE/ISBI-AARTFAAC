@@ -44,6 +44,12 @@ struct VDIFHeader {
 
   
   int64_t timestamp(double sample_rate) const;
+  // As above, but with the samples-per-frame used for the within-second term
+  // supplied rather than derived. A station that is decimated on input advances
+  // the ring buffer by fewer samples per frame than its payload contains, and
+  // its timestamps have to be expressed in those same decimated units or it
+  // lands at the wrong place in the buffer.
+  int64_t timestamp(double sample_rate, uint32_t samplesPerFrame) const;
   uint32_t frameSize() const;
   uint32_t dataSize() const;
   uint32_t headerSize() const;
@@ -98,6 +104,13 @@ class VDIFStream : public Stream {
     size_t tryWrite(const void *ptr, size_t size) { return 0; }
     size_t tryRead(void *ptr, size_t size) { return 0; }
 
+    // Input decimation: keep 1 sample in every `decimation`. 1 means none.
+    unsigned getDecimation() const { return decimation; }
+    uint32_t decimatedSamplesPerFrame(const VDIFHeader &header) const
+      { return header.samplesPerFrame() / decimation; }
+    int64_t  frameTimestamp(const VDIFHeader &header) const
+      { return header.timestamp(sampleRate, decimatedSamplesPerFrame(header)); }
+
     bool     haveFirstHeader() const { return firstHeaderFound; }
     int64_t  getFirstTimestamp() const;
     const VDIFHeader &getFirstHeader() const { return firstHeader; }
@@ -106,7 +119,7 @@ class VDIFStream : public Stream {
     uint64_t getInvalidFrames() const { return invalidFrames; }
 
   protected:
-    VDIFStream(double sampleRate);
+    VDIFStream(double sampleRate, unsigned decimation = 1);
 
     static HeaderStatus checkHeader(const VDIFHeader &header);
 
@@ -117,6 +130,7 @@ class VDIFStream : public Stream {
     VDIFHeader firstHeader, currentHeader;
 
     bool firstHeaderFound;
+    unsigned decimation;
 
     uint64_t invalidFrames;
     uint64_t numberOfFrames;
@@ -130,7 +144,7 @@ class VDIFStream : public Stream {
 // mode, a file reader otherwise. The descriptor is a filename for file input
 // and [udp:][address:]port for real-time input; startTime is only used to seek
 // in a file.
-std::unique_ptr<VDIFStream> createVDIFStream(const std::string &descriptor, double sampleRate, const TimeStamp &startTime, bool realTime);
+std::unique_ptr<VDIFStream> createVDIFStream(const std::string &descriptor, double sampleRate, const TimeStamp &startTime, bool realTime, unsigned decimation = 1);
 
 inline uint32_t VDIFHeader::headerSize() const {
   return 16 + 16 * (1 - legacy_mode);

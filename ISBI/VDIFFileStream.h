@@ -22,7 +22,7 @@ class VDIFFileStream : public VDIFStream {
     void atTimestamp(const TimeStamp &ts);
     bool readHeaderAtFrame(uint64_t frameIndex, VDIFHeader &hdr);
   public:
-    VDIFFileStream(std::string inputFile, double sampleRate, TimeStamp startTime);
+    VDIFFileStream(std::string inputFile, double sampleRate, TimeStamp startTime, unsigned decimation = 1);
     ~VDIFFileStream();
 
     bool read(char *frame);

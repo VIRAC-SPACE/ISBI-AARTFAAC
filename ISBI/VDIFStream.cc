@@ -8,11 +8,12 @@
 #include <cstring>
 #include <ctime>
 
-VDIFStream::VDIFStream(double sampleRate)
+VDIFStream::VDIFStream(double sampleRate, unsigned decimation)
 :
   firstHeader(),
   currentHeader(),
   firstHeaderFound(false),
+  decimation(decimation),
   invalidFrames(0),
   numberOfFrames(0),
   sampleRate(sampleRate),
@@ -49,16 +50,20 @@ void VDIFStream::setFirstHeader(const VDIFHeader &header)
 }
 
 
-std::unique_ptr<VDIFStream> createVDIFStream(const std::string &descriptor, double sampleRate, const TimeStamp &startTime, bool realTime)
+std::unique_ptr<VDIFStream> createVDIFStream(const std::string &descriptor, double sampleRate, const TimeStamp &startTime, bool realTime, unsigned decimation)
 {
   if (realTime)
-    return std::unique_ptr<VDIFStream>(new VDIFSocketStream(descriptor, sampleRate));
+    return std::unique_ptr<VDIFStream>(new VDIFSocketStream(descriptor, sampleRate, decimation));
   else
-    return std::unique_ptr<VDIFStream>(new VDIFFileStream(descriptor, sampleRate, startTime));
+    return std::unique_ptr<VDIFStream>(new VDIFFileStream(descriptor, sampleRate, startTime, decimation));
 }
 
 
 int64_t VDIFHeader::timestamp(double sample_rate) const {
+    return timestamp(sample_rate, samplesPerFrame());
+}
+
+int64_t VDIFHeader::timestamp(double sample_rate, uint32_t samplesPerFrame) const {
     std::tm date{};
     date.tm_year = 2000 + ref_epoch / 2 - 1900;
     date.tm_mon = (ref_epoch & 1) ? 6 : 0;
@@ -72,7 +77,7 @@ int64_t VDIFHeader::timestamp(double sample_rate) const {
 
     auto exact_time = time_point + std::chrono::seconds(sec_from_epoch);
     int64_t out =  static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(exact_time.time_since_epoch()).count() * sample_rate 
-           + dataframe_in_second * samplesPerFrame());
+           + dataframe_in_second * samplesPerFrame);
     return out;
 }
 

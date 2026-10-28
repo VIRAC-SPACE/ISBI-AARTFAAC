@@ -38,15 +38,17 @@ namespace {
     return lut;
   } ();
 
+  // `step` is nchan * decimation: one sample-time is nchan 2-bit values, and a
+  // decimated station simply skips (decimation - 1) of every decimation of them.
   inline void decodeMappedChannelSamples(
       int8_t *__restrict dst,
       unsigned nrSamples,
       const uint8_t *__restrict payload,
       size_t payloadBytes,
-      unsigned nchan,
+      size_t step,
       size_t dataIndex)
   {
-    for (unsigned sample = 0; sample < nrSamples; ++sample, dataIndex += nchan) {
+    for (unsigned sample = 0; sample < nrSamples; ++sample, dataIndex += step) {
       const size_t byteIndex = dataIndex >> 2;
 
       if (byteIndex >= payloadBytes) {
@@ -134,7 +136,7 @@ std::function<std::ostream & (std::ostream &)> InputBuffer::logMessage() const{
 
 
 
-InputBuffer::InputBuffer(const ISBI_Parset &ps, MultiArrayHostBuffer<char, 4> hostRingBuffer[], unsigned myFirstSubband, unsigned myNrSubbands, unsigned myFirstStation, unsigned myNrStations, unsigned nrTimesPerPacket)
+InputBuffer::InputBuffer(const ISBI_Parset &ps, MultiArrayHostBuffer<char, 4> hostRingBuffer[], unsigned myFirstSubband, unsigned myNrSubbands, unsigned myFirstStation, unsigned myNrStations, unsigned samplesPerFrameOverride)
 :
   ps(ps),
   myFirstSubband(myFirstSubband),
@@ -142,15 +144,28 @@ InputBuffer::InputBuffer(const ISBI_Parset &ps, MultiArrayHostBuffer<char, 4> ho
   myFirstStation(myFirstStation),
   myNrStations(myNrStations),
   nrRingBufferSamplesPerSubband(ps.nrRingBufferSamplesPerSubband()),
+  samplesPerFrameOverride(samplesPerFrameOverride),
+  decimation(ps.decimation(myFirstStation)),
+  nrHistorySamples((NR_TAPS - 1) * ps.nrChannelsPerSubbandBeforeFilter()),
   mappedChannels([&] {
     std::vector<uint32_t> channels(myNrSubbands * ps.nrPolarizations());
-    std::vector<uint32_t> channelMapping = {8, 12,  0,  4,  9, 13,  1,  5, 10, 14,  2,  6, 11, 15,  3,  7};
+    const std::vector<ISBI_Parset::ChannelSelector> &channelMapping = ps.channelMapping(myFirstStation);
+
+    // The mapping is per (subband, polarisation) and is backend specific, so it
+    // has to cover every (subband, polarisation) this buffer will decode.
+    if (channelMapping.size() < (myFirstSubband + myNrSubbands) * ps.nrPolarizations())
+      throw std::runtime_error("channelMapping has " + std::to_string(channelMapping.size()) +
+                               " entries but " +
+                               std::to_string((myFirstSubband + myNrSubbands) * ps.nrPolarizations()) +
+                               " are needed for station " + std::to_string(myFirstStation) + ", " + std::to_string(myNrSubbands) +
+                               " subbands x " + std::to_string(ps.nrPolarizations()) +
+                               " polarisations; pass --channelMapping");
 
     for (unsigned subband = 0; subband < myNrSubbands; ++subband) {
       const unsigned subbandOffset = (myFirstSubband + subband) * ps.nrPolarizations();
 
       for (unsigned pol = 0; pol < ps.nrPolarizations(); ++pol) {
-        channels[subband * ps.nrPolarizations() + pol] = channelMapping[subbandOffset + pol];
+        channels[subband * ps.nrPolarizations() + pol] = channelMapping[subbandOffset + pol].channel;
       }
     }
 
@@ -169,9 +184,26 @@ InputBuffer::InputBuffer(const ISBI_Parset &ps, MultiArrayHostBuffer<char, 4> ho
 
     return bases;
   }()),
+  slotsPerThread([&] {
+    const std::vector<ISBI_Parset::ChannelSelector> &channelMapping = ps.channelMapping(myFirstStation);
+    std::vector<std::vector<uint32_t>> slots;
+
+    for (unsigned subband = 0; subband < myNrSubbands; ++subband) {
+      const unsigned subbandOffset = (myFirstSubband + subband) * ps.nrPolarizations();
+
+      for (unsigned pol = 0; pol < ps.nrPolarizations(); ++pol) {
+        const unsigned thread = channelMapping[subbandOffset + pol].thread;
+
+        if (thread >= slots.size())
+          slots.resize(thread + 1);
+
+        slots[thread].push_back(subband * ps.nrPolarizations() + pol);
+      }
+    }
+
+    return slots;
+  }()),
   hostRingBuffer(hostRingBuffer),
-  nrTimesPerPacket(nrTimesPerPacket),
-  nrHistorySamples((NR_TAPS - 1) * ps.nrChannelsPerSubbandBeforeFilter()),
   latestWriteTime(0, ps.clockSpeed()),
   stop(false),
   readerAndWriterSynchronization(nrRingBufferSamplesPerSubband, ps.startTime() - nrHistorySamples - ps.maxDelay()),
@@ -204,54 +236,67 @@ InputBuffer::~InputBuffer()
 
 
 void InputBuffer::handleConsecutivePackets(std::array<std::array<char, maxPacketSize>, maxNrPacketsInBuffer>& packetBuffer, unsigned firstPacket, unsigned lastPacket) {
-  const VDIFHeader* header = reinterpret_cast<const VDIFHeader*>(packetBuffer[firstPacket].data());
-  TimeStamp beginTime(header->timestamp(ps.sampleRate()), ps.clockSpeed());
+  // The run may hold several VDIF threads, and a station that splits its
+  // channels over threads emits them interleaved and not always in a fixed
+  // order (n26l2's Cm: thread 1, 0, 0, 1, 1, 0 over timestamps t, t, t+1, ...).
+  // So the run is bounded by the smallest and largest timestamp it contains,
+  // and every frame is placed by its OWN timestamp rather than by its position,
+  // which costs nothing for the single-thread case and is the only thing that
+  // works for the multi-thread one.
+  TimeStamp beginTime(0, ps.clockSpeed()), endTime(0, ps.clockSpeed());
+
+  for (unsigned packet = firstPacket; packet < lastPacket; ++packet) {
+    const VDIFHeader* packetHeader = reinterpret_cast<const VDIFHeader*>(packetBuffer[packet].data());
+    TimeStamp packetTime(frameTimestamp(packetHeader), ps.clockSpeed());
+    TimeStamp packetEnd(packetTime + samplesPerFrame(packetHeader));
+
+    if (packet == firstPacket || packetTime < beginTime)
+      beginTime = packetTime;
+
+    if (packet == firstPacket || packetEnd > endTime)
+      endTime = packetEnd;
+  }
 
   std::lock_guard<std::mutex> latestWriteTimeLock(latestWriteTimeMutex);
 
   if (beginTime >= latestWriteTime) {
-    unsigned timeIndex = beginTime % nrRingBufferSamplesPerSubband;
-    unsigned myNrTimes = (lastPacket - firstPacket) * nrTimesPerPacket;
-
-    TimeStamp endTime(beginTime + myNrTimes);
-
     latestWriteTime = endTime;
 
     readerAndWriterSynchronization.startWrite(beginTime, endTime);
-    const unsigned nrPolarizations = ps.nrPolarizations();
 
     for (unsigned packet = firstPacket; packet < lastPacket; ++packet) {
       const VDIFHeader* packetHeader = reinterpret_cast<const VDIFHeader*>(packetBuffer[packet].data());
       const uint8_t *payload = reinterpret_cast<const uint8_t*>(packetBuffer[packet].data() + packetHeader->headerSize());
       const size_t payloadBytes = packetHeader->dataSize();
-      const unsigned nchan = packetHeader->numberOfChannels();
-      const unsigned firstSpan = std::min(nrTimesPerPacket, nrRingBufferSamplesPerSubband - timeIndex);
-      const unsigned secondSpan = nrTimesPerPacket - firstSpan;
+      const size_t step = (size_t) packetHeader->numberOfChannels() * decimation;
+      const unsigned nrTimes = samplesPerFrame(packetHeader);
+      const unsigned thread = packetHeader->thread_id;
 
-      for (unsigned subband = 0; subband < myNrSubbands; ++subband) {
-        const unsigned mappingBase = subband * nrPolarizations;
+      // A thread this station was not told to use carries nothing we want.
+      if (thread >= slotsPerThread.size())
+        continue;
 
-        for (unsigned pol = 0; pol < nrPolarizations; ++pol) {
-          const size_t mappedIndex = mappedChannels[mappingBase + pol];
-          int8_t *ringBuffer = ringBufferBases[mappingBase + pol];
+      TimeStamp packetTime(frameTimestamp(packetHeader), ps.clockSpeed());
+      const unsigned timeIndex = packetTime % nrRingBufferSamplesPerSubband;
+      const unsigned firstSpan = std::min(nrTimes, nrRingBufferSamplesPerSubband - timeIndex);
+      const unsigned secondSpan = nrTimes - firstSpan;
 
-          decodeMappedChannelSamples(ringBuffer + timeIndex, firstSpan, payload, payloadBytes, nchan, mappedIndex);
+      for (uint32_t slot : slotsPerThread[thread]) {
+        const size_t mappedIndex = mappedChannels[slot];
+        int8_t *ringBuffer = ringBufferBases[slot];
 
-          if (secondSpan > 0) {
-            decodeMappedChannelSamples(
-                ringBuffer,
-                secondSpan,
-                payload,
-                payloadBytes,
-                nchan,
-                mappedIndex + static_cast<size_t>(firstSpan) * nchan);
-          }
+        decodeMappedChannelSamples(ringBuffer + timeIndex, firstSpan, payload, payloadBytes, step, mappedIndex);
+
+        if (secondSpan > 0) {
+          decodeMappedChannelSamples(
+              ringBuffer,
+              secondSpan,
+              payload,
+              payloadBytes,
+              step,
+              mappedIndex + static_cast<size_t>(firstSpan) * step);
         }
       }
-
-      timeIndex += nrTimesPerPacket;
-      if (timeIndex >= nrRingBufferSamplesPerSubband)
-        timeIndex -= nrRingBufferSamplesPerSubband;
     }
 
     {
@@ -285,7 +330,7 @@ void InputBuffer::inputThreadBody() {
 
   // In real-time mode the frames arrive over UDP, otherwise they are read from
   // a recording that is seeked to the start of the observation.
-  std::unique_ptr<VDIFStream> vdifStream = createVDIFStream(ps.inputDescriptors()[myFirstStation], ps.sampleRate(), seekTime, ps.realTime());
+  std::unique_ptr<VDIFStream> vdifStream = createVDIFStream(ps.inputDescriptors()[myFirstStation], ps.sampleRate(), seekTime, ps.realTime(), decimation);
 
 #pragma omp critical (clog)
   {
@@ -303,7 +348,7 @@ void InputBuffer::inputThreadBody() {
 
   bool printedImpossibleTimeStampWarning = false;
   unsigned nrPackets, firstPacket, nextPacket;
-  TimeStamp timeStamp(0, ps.clockSpeed()); 
+  TimeStamp timeStamp(0, ps.clockSpeed()), previousTimeStamp(0, ps.clockSpeed()); 
 
 #if defined USE_RECVMMSG
   struct iovec   iovecs[maxNrPacketsInBuffer];
@@ -338,9 +383,12 @@ void InputBuffer::inputThreadBody() {
 
     for (firstPacket = nextPacket = 0; nextPacket < nrPackets; nextPacket ++) {
       const VDIFHeader* header = reinterpret_cast<const VDIFHeader*>(packetBuffer[nextPacket].data());
-      timeStamp = TimeStamp(header->timestamp(ps.sampleRate()), ps.clockSpeed());
+      timeStamp = TimeStamp(frameTimestamp(header), ps.clockSpeed());
 
-      if (timeStamp != expectedTimeStamp) {
+      // A frame continues the current run if it advances by one frame, or if it
+      // REPEATS the previous timestamp -- which is what a second VDIF thread of
+      // the same station looks like, since every thread stamps the same time.
+      if (timeStamp != expectedTimeStamp && timeStamp != previousTimeStamp) {
         if (firstPacket < nextPacket) {
           handleConsecutivePackets(packetBuffer, firstPacket, nextPacket);
         }
@@ -360,7 +408,8 @@ void InputBuffer::inputThreadBody() {
         }
       }
 
-      expectedTimeStamp = timeStamp + nrTimesPerPacket;
+      previousTimeStamp = timeStamp;
+      expectedTimeStamp = timeStamp + samplesPerFrame(header);
     }
 
 

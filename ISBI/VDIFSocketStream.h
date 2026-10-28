@@ -19,7 +19,7 @@ class VDIFSocketStream : public VDIFStream {
     // all interfaces. A read that finds no datagram within readTimeout seconds
     // returns false instead of blocking forever, so that the input thread can
     // notice that the observation ended.
-    VDIFSocketStream(const std::string &descriptor, double sampleRate, double readTimeout = 0.1, int receiveBufferSize = 64 * 1024 * 1024);
+    VDIFSocketStream(const std::string &descriptor, double sampleRate, unsigned decimation = 1, double readTimeout = 0.1, int receiveBufferSize = 64 * 1024 * 1024);
     ~VDIFSocketStream();
 
     bool read(char *frame);
